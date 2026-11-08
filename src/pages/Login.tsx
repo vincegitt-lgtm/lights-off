@@ -33,6 +33,7 @@ const Login: React.FC = () => {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       
       if (!userDoc.exists()) {
+        // BAGONG USER: I-save at pumunta agad sa Profile Setup (Walang alert)
         localStorage.setItem('googleUser', JSON.stringify({
           uid: user.uid,
           email: user.email,
@@ -98,9 +99,7 @@ const Login: React.FC = () => {
 
   return (
     <IonPage>
-      {/* TINANGGAL ANG style={{ '--background': ... }} DITO */}
       <IonContent className="ion-padding">
-        
         <div style={{ textAlign: 'center', marginTop: '40px', marginBottom: '30px' }}>
           <img src={logo} alt="LightsOff Logo" style={{ width: '150px', height: '150px', objectFit: 'contain', marginBottom: '15px' }} />
           <h1 style={{ fontWeight: '900', fontSize: '2rem', color: 'var(--ion-text-color)', margin: '0' }}>LightsOff</h1>

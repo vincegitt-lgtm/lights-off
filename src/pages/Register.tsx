@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonItem, IonLabel, IonInput, IonButton, IonSelect, IonSelectOption, IonText, IonIcon, IonCheckbox, IonButtons, IonBackButton } from '@ionic/react';
-import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
@@ -37,16 +37,14 @@ const Register: React.FC = () => {
         return;
       }
 
-      // CHECK KUNG EXISTING USER NA
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       
       if (userDoc.exists()) {
-        // Kung existing user na, deretso sa Home/Admin
         const userData = userDoc.data();
         if (userData.role === 'admin') navigate('/admin');
         else navigate('/home');
       } else {
-        // KUNG BAGONG USER: I-save sa localStorage at pumunta sa Profile Setup
+        // BAGONG USER: I-save at pumunta agad sa Profile Setup (Walang alert)
         localStorage.setItem('googleUser', JSON.stringify({
           uid: user.uid,
           email: user.email,
