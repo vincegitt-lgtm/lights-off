@@ -73,20 +73,19 @@ const Home: React.FC = () => {
     return () => { if (unsubscribe) unsubscribe(); };
   }, []);
 
-  // FUNCTION PARA MAKA-DOWNLOAD NG .ICS FILE (CALENDAR REMINDER)
   const handleSetReminder = (ann: any) => {
     try {
-      const eventDate = new Date(`${ann.scheduledDate.split('T')[0]}T${ann.scheduledTime.split('T')[1]}`);
-      const endDate = new Date(eventDate.getTime() + 60 * 60 * 1000);
+      // Gumamit ng startTime at endTime para sa duration
+      const eventStartDate = new Date(`${ann.scheduledDate.split('T')[0]}T${ann.startTime.split('T')[1]}`);
+      const eventEndDate = new Date(`${ann.scheduledDate.split('T')[0]}T${ann.endTime.split('T')[1]}`);
 
-      // Format para sa .ics file
       const formatDate = (date: Date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
       
       const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
 BEGIN:VEVENT
-DTSTART:${formatDate(eventDate)}
-DTEND:${formatDate(endDate)}
+DTSTART:${formatDate(eventStartDate)}
+DTEND:${formatDate(eventEndDate)}
 SUMMARY:Brownout: ${ann.title}
 DESCRIPTION:${ann.description}
 LOCATION:${ann.affectedAreas.join(', ')}
@@ -157,15 +156,15 @@ END:VCALENDAR`;
               <IonCardContent>
                 <p>{ann.description}</p>
                 
-                {/* IPAKITA ANG PETSA AT ORAS */}
                 {ann.scheduledDate && (
                   <p style={{ fontSize: '0.85em', color: 'gray', margin: '5px 0' }}>
                     <IonIcon icon={calendarOutline} /> <strong>Petsa:</strong> {new Date(ann.scheduledDate).toLocaleDateString()}
                   </p>
                 )}
-                {ann.scheduledTime && (
+                {/* IPAKITA ANG DURATION */}
+                {ann.startTime && ann.endTime && (
                   <p style={{ fontSize: '0.85em', color: 'gray', margin: '5px 0' }}>
-                    <IonIcon icon={timeOutline} /> <strong>Oras:</strong> {new Date(ann.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <IonIcon icon={timeOutline} /> <strong>Oras:</strong> {new Date(ann.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(ann.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 )}
                 
@@ -173,8 +172,7 @@ END:VCALENDAR`;
                   <strong>Apektado:</strong> {ann.affectedAreas?.join(', ')}
                 </p>
 
-                {/* SET REMINDER BUTTON */}
-                {ann.scheduledDate && ann.scheduledTime && (
+                {ann.scheduledDate && ann.startTime && ann.endTime && (
                   <IonButton expand="block" fill="outline" color="warning" className="ion-margin-top" onClick={() => handleSetReminder(ann)}>
                     <IonIcon slot="start" icon={downloadOutline} /> Set Reminder
                   </IonButton>

@@ -14,7 +14,8 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
   const [type, setType] = useState('scheduled');
   const [affectedAreas, setAffectedAreas] = useState('');
   const [scheduledDate, setScheduledDate] = useState<string>(new Date().toISOString());
-  const [scheduledTime, setScheduledTime] = useState<string>(new Date().toISOString());
+  const [startTime, setStartTime] = useState<string>(new Date().toISOString());
+  const [endTime, setEndTime] = useState<string>(new Date().toISOString());
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [announcements, setAnnouncements] = useState<any[]>([]);
@@ -77,8 +78,9 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
         branch: adminBranch,
         affectedAreas: affectedAreas.split(',').map(area => area.trim()),
         status: 'ongoing',
-        scheduledDate: scheduledDate, // I-save ang petsa
-        scheduledTime: scheduledTime, // I-save ang oras
+        scheduledDate: scheduledDate,
+        startTime: startTime, // <-- BAGO
+        endTime: endTime,     // <-- BAGO
         createdBy: auth.currentUser?.uid,
         timestamp: serverTimestamp(),
       });
@@ -137,30 +139,27 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
             </IonSelect>
           </IonItem>
 
-          {/* DATE AND TIME PICKERS */}
           <IonItem>
             <IonLabel position="stacked">Petsa ng Outage</IonLabel>
             <IonDatetimeButton datetime="date-picker"></IonDatetimeButton>
             <IonModal keepContentsMounted={true}>
-              <IonDatetime 
-                id="date-picker" 
-                presentation="date" 
-                value={scheduledDate}
-                onIonChange={e => setScheduledDate(e.detail.value as string)}
-              ></IonDatetime>
+              <IonDatetime id="date-picker" presentation="date" value={scheduledDate} onIonChange={e => setScheduledDate(e.detail.value as string)}></IonDatetime>
             </IonModal>
           </IonItem>
 
           <IonItem>
-            <IonLabel position="stacked">Oras ng Outage</IonLabel>
-            <IonDatetimeButton datetime="time-picker"></IonDatetimeButton>
+            <IonLabel position="stacked">Simula ng Outage (Start Time)</IonLabel>
+            <IonDatetimeButton datetime="start-time-picker"></IonDatetimeButton>
             <IonModal keepContentsMounted={true}>
-              <IonDatetime 
-                id="time-picker" 
-                presentation="time" 
-                value={scheduledTime}
-                onIonChange={e => setScheduledTime(e.detail.value as string)}
-              ></IonDatetime>
+              <IonDatetime id="start-time-picker" presentation="time" value={startTime} onIonChange={e => setStartTime(e.detail.value as string)}></IonDatetime>
+            </IonModal>
+          </IonItem>
+
+          <IonItem>
+            <IonLabel position="stacked">Tapos ng Outage (End Time)</IonLabel>
+            <IonDatetimeButton datetime="end-time-picker"></IonDatetimeButton>
+            <IonModal keepContentsMounted={true}>
+              <IonDatetime id="end-time-picker" presentation="time" value={endTime} onIonChange={e => setEndTime(e.detail.value as string)}></IonDatetime>
             </IonModal>
           </IonItem>
 
@@ -183,15 +182,14 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
               </IonCardHeader>
               <IonCardContent>
                 <p>{ann.description}</p>
-                {/* IPAKITA ANG PETSA AT ORAS DITO */}
                 {ann.scheduledDate && (
                   <p style={{ fontSize: '0.85em', color: 'gray' }}>
                     <strong>Petsa:</strong> {new Date(ann.scheduledDate).toLocaleDateString()}
                   </p>
                 )}
-                {ann.scheduledTime && (
+                {ann.startTime && ann.endTime && (
                   <p style={{ fontSize: '0.85em', color: 'gray' }}>
-                    <strong>Oras:</strong> {new Date(ann.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <strong>Oras:</strong> {new Date(ann.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(ann.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 )}
                 <p style={{ fontSize: '0.85em', color: 'gray' }}>

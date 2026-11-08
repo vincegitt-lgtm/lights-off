@@ -71,15 +71,15 @@ const OutageHistory: React.FC = () => {
               <IonCardContent>
                 <p style={{ fontSize: '0.9em' }}>{ann.description}</p>
 
-                {/* IPAKITA ANG PETSA AT ORAS DITO RIN */}
                 {ann.scheduledDate && (
                   <p style={{ fontSize: '0.85em', color: 'gray', margin: '5px 0' }}>
                     <IonIcon icon={calendarOutline} /> <strong>Petsa:</strong> {new Date(ann.scheduledDate).toLocaleDateString()}
                   </p>
                 )}
-                {ann.scheduledTime && (
+                {/* IPAKITA ANG DURATION */}
+                {ann.startTime && ann.endTime && (
                   <p style={{ fontSize: '0.85em', color: 'gray', margin: '5px 0' }}>
-                    <IonIcon icon={timeOutline} /> <strong>Oras:</strong> {new Date(ann.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <IonIcon icon={timeOutline} /> <strong>Oras:</strong> {new Date(ann.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(ann.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 )}
 
