@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonBadge, IonText, IonSpinner, IonList } from '@ionic/react';
+import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonBadge, IonText, IonSpinner, IonIcon } from '@ionic/react';
 import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { calendarOutline, timeOutline } from 'ionicons/icons';
 
 const OutageHistory: React.FC = () => {
   const [history, setHistory] = useState<any[]>([]);
@@ -19,7 +20,6 @@ const OutageHistory: React.FC = () => {
           const branch = userDoc.data().branch;
           setUserBranch(branch);
 
-          // Kunin lang ang mga 'restored' at 'cancelled' na announcements
           const q = query(
             collection(db, 'announcements'),
             where('branch', '==', branch),
@@ -29,7 +29,6 @@ const OutageHistory: React.FC = () => {
           unsubscribe = onSnapshot(q, (snapshot) => {
             const data: any[] = [];
             snapshot.forEach((doc) => data.push({ id: doc.id, ...doc.data() }));
-            // I-sort para ang pinakabago ang nasa taas
             data.sort((a, b) => b.timestamp?.toMillis() - a.timestamp?.toMillis());
             setHistory(data);
             setLoading(false);
@@ -44,9 +43,9 @@ const OutageHistory: React.FC = () => {
 
   return (
     <IonPage>
-      <IonHeader>
+      <IonHeader className="ion-no-border">
         <IonToolbar color="primary">
-          <IonTitle>Outage History ({userBranch})</IonTitle>
+          <IonTitle style={{ fontWeight: 'bold' }}>Outage History ({userBranch})</IonTitle>
         </IonToolbar>
       </IonHeader>
       <IonContent className="ion-padding">
@@ -71,11 +70,21 @@ const OutageHistory: React.FC = () => {
               </IonCardHeader>
               <IonCardContent>
                 <p style={{ fontSize: '0.9em' }}>{ann.description}</p>
-                <p style={{ fontSize: '0.8em', color: 'gray', marginTop: '5px' }}>
-                  <strong>Apektado:</strong> {ann.affectedAreas?.join(', ')}
-                </p>
+
+                {/* IPAKITA ANG PETSA AT ORAS DITO RIN */}
+                {ann.scheduledDate && (
+                  <p style={{ fontSize: '0.85em', color: 'gray', margin: '5px 0' }}>
+                    <IonIcon icon={calendarOutline} /> <strong>Petsa:</strong> {new Date(ann.scheduledDate).toLocaleDateString()}
+                  </p>
+                )}
+                {ann.scheduledTime && (
+                  <p style={{ fontSize: '0.85em', color: 'gray', margin: '5px 0' }}>
+                    <IonIcon icon={timeOutline} /> <strong>Oras:</strong> {new Date(ann.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                )}
+
                 <p style={{ fontSize: '0.8em', color: 'gray' }}>
-                  <strong>Petsa:</strong> {ann.timestamp ? new Date(ann.timestamp.toMillis()).toLocaleDateString() : 'N/A'}
+                  <strong>Apektado:</strong> {ann.affectedAreas?.join(', ')}
                 </p>
               </IonCardContent>
             </IonCard>

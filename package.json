@@ -12,6 +12,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@capacitor/calendar": "^1.0.1",
     "@capacitor/camera": "^8.2.6",
     "@ionic/react": "^9.0.0",
     "@ionic/react-router": "^9.0.0",

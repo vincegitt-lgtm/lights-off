@@ -3,20 +3,18 @@ import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardH
 import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
-import { partlySunnyOutline, warningOutline } from 'ionicons/icons';
+import { partlySunnyOutline, warningOutline, calendarOutline, timeOutline } from 'ionicons/icons';
+import { CapacitorCalendar } from '@capacitor/calendar'; // <-- IMPORT
 
 const Home: React.FC = () => {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [userBranch, setUserBranch] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // Weather State
   const [weatherData, setWeatherData] = useState<{ condition: string, temp: number, isRaining: boolean } | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
   
   const navigate = useNavigate();
 
-  // Function para makuha ang coordinates base sa branch
   const getCoordinates = (branch: string) => {
     switch(branch) {
       case 'Naujan': return { lat: 13.3244, lon: 121.3066 };
@@ -37,30 +35,24 @@ const Home: React.FC = () => {
           const branch = userDoc.data().branch;
           setUserBranch(branch);
 
-          // Fetch Weather base sa branch
           const { lat, lon } = getCoordinates(branch);
           try {
             const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=Asia%2FManila`);
             const data = await res.json();
-            
             const temp = data.current.temperature_2m;
             const code = data.current.weather_code;
-            
             let condition = "Clear";
             if (code > 0 && code < 50) condition = "Cloudy";
             if (code >= 51 && code <= 67) condition = "Raining";
             if (code >= 80 && code <= 82) condition = "Heavy Rain";
             if (code >= 95) condition = "Thunderstorm";
-
             const isRaining = (code >= 51 && code <= 67) || (code >= 80 && code <= 82) || (code >= 95);
-            
             setWeatherData({ condition, temp, isRaining });
           } catch (error) {
             console.error("Weather API error:", error);
           }
           setWeatherLoading(false);
 
-          // Fetch Announcements
           const q = query(
             collection(db, 'announcements'),
             where('branch', '==', branch)
@@ -69,7 +61,6 @@ const Home: React.FC = () => {
           unsubscribe = onSnapshot(q, (snapshot) => {
             const data: any[] = [];
             snapshot.forEach((doc) => data.push({ id: doc.id, ...doc.data() }));
-            // Ipakita lang ang 'ongoing' sa Home
             const filtered = data.filter(d => d.status === 'ongoing');
             filtered.sort((a, b) => b.timestamp?.toMillis() - a.timestamp?.toMillis());
             setAnnouncements(filtered);
@@ -83,17 +74,35 @@ const Home: React.FC = () => {
     return () => { if (unsubscribe) unsubscribe(); };
   }, []);
 
+  const handleSetReminder = async (ann: any) => {
+    try {
+      // Pagsamahin ang Date at Time para maging isang Date object
+      const eventDate = new Date(`${ann.scheduledDate.split('T')[0]}T${ann.scheduledTime.split('T')[1]}`);
+      
+      await CapacitorCalendar.createEvent({
+        title: `Brownout: ${ann.title}`,
+        startDate: eventDate.getTime(),
+        endDate: eventDate.getTime() + 60 * 60 * 1000, // 1 hour duration
+        location: ann.affectedAreas.join(', '),
+        description: ann.description,
+      });
+      
+      alert('Na-save sa Calendar ang reminder!');
+    } catch (error) {
+      console.error('Error saving to calendar:', error);
+      alert('Hindi ma-save sa calendar. Tiyakin na may permission ang app.');
+    }
+  };
+
   return (
     <IonPage>
-      <IonHeader>
+      <IonHeader className="ion-no-border">
         <IonToolbar color="primary">
-          <IonTitle>LightsOff ({userBranch || 'Loading...'})</IonTitle>
-          {/* TINANGGAL NA ANG LOGOUT BUTTON DITO */}
+          <IonTitle style={{ fontWeight: 'bold' }}>LightsOff ({userBranch || 'Loading...'})</IonTitle>
         </IonToolbar>
       </IonHeader>
       <IonContent className="ion-padding">
         
-        {/* WEATHER INFO CARD */}
         {!weatherLoading && weatherData && (
           <IonCard color={weatherData.isRaining ? "warning" : "tertiary"} style={{ margin: '0 0 15px 0' }}>
             <IonCardHeader>
@@ -113,7 +122,7 @@ const Home: React.FC = () => {
         )}
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-          <h2 style={{ margin: 0 }}>Official Announcements</h2>
+          <h2 style={{ margin: 0, fontWeight: 'bold' }}>Official Announcements</h2>
           <IonButton size="small" fill="outline" onClick={() => navigate('/outage-history')}>
             History
           </IonButton>
@@ -134,9 +143,29 @@ const Home: React.FC = () => {
               </IonCardHeader>
               <IonCardContent>
                 <p>{ann.description}</p>
-                <p style={{ fontSize: '0.8em', color: 'gray' }}>
+                
+                {/* IPAKITA ANG PETSA AT ORAS */}
+                {ann.scheduledDate && (
+                  <p style={{ fontSize: '0.85em', color: 'gray', margin: '5px 0' }}>
+                    <IonIcon icon={calendarOutline} /> <strong>Petsa:</strong> {new Date(ann.scheduledDate).toLocaleDateString()}
+                  </p>
+                )}
+                {ann.scheduledTime && (
+                  <p style={{ fontSize: '0.85em', color: 'gray', margin: '5px 0' }}>
+                    <IonIcon icon={timeOutline} /> <strong>Oras:</strong> {new Date(ann.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                )}
+                
+                <p style={{ fontSize: '0.8em', color: 'gray', marginTop: '5px' }}>
                   <strong>Apektado:</strong> {ann.affectedAreas?.join(', ')}
                 </p>
+
+                {/* SET REMINDER BUTTON */}
+                {ann.scheduledDate && ann.scheduledTime && (
+                  <IonButton expand="block" fill="outline" color="warning" className="ion-margin-top" onClick={() => handleSetReminder(ann)}>
+                    <IonIcon slot="start" icon={calendarOutline} /> Set Reminder
+                  </IonButton>
+                )}
               </IonCardContent>
             </IonCard>
           ))

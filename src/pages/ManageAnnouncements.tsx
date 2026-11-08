@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonItem, IonLabel, IonInput, IonButton, IonSelect, IonSelectOption, IonTextarea, IonList, IonText, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonBadge, IonCardSubtitle, IonIcon } from '@ionic/react';
+import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonItem, IonLabel, IonInput, IonButton, IonSelect, IonSelectOption, IonTextarea, IonList, IonText, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonBadge, IonCardSubtitle, IonIcon, IonDatetime, IonDatetimeButton, IonModal } from '@ionic/react';
 import { collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { partlySunnyOutline } from 'ionicons/icons';
@@ -13,6 +13,8 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
   const [description, setDescription] = useState('');
   const [type, setType] = useState('scheduled');
   const [affectedAreas, setAffectedAreas] = useState('');
+  const [scheduledDate, setScheduledDate] = useState<string>(new Date().toISOString());
+  const [scheduledTime, setScheduledTime] = useState<string>(new Date().toISOString());
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [announcements, setAnnouncements] = useState<any[]>([]);
@@ -23,13 +25,12 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
       case 'Naujan': return { lat: 13.3244, lon: 121.3066 };
       case 'Socorro': return { lat: 13.0431, lon: 121.4128 };
       case 'Calapan City': return { lat: 13.4115, lon: 121.1803 };
-      default: return { lat: 13.4000, lon: 121.1833 }; // Default Mindoro
+      default: return { lat: 13.4000, lon: 121.1833 };
     }
   };
 
   useEffect(() => {
     const fetchAdminWeather = async () => {
-      // Dito natin kinukuha ang tamang coordinates base sa branch
       const { lat, lon } = getCoordinates(adminBranch);
       try {
         const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=Asia%2FManila`);
@@ -47,7 +48,6 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
     
     if (adminBranch) fetchAdminWeather();
 
-    // Kunin ang mga announcements ng branch na ito
     const q = query(
       collection(db, 'announcements'),
       where('branch', '==', adminBranch)
@@ -59,7 +59,7 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
       setAnnouncements(data);
     });
     return () => unsubscribe();
-  }, [adminBranch]); // Magre-run ito kapag nagbago ang adminBranch
+  }, [adminBranch]);
 
   const handleSubmit = async () => {
     setError('');
@@ -74,9 +74,11 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
         title,
         description,
         type,
-        branch: adminBranch, // Naka-save ang tamang branch
+        branch: adminBranch,
         affectedAreas: affectedAreas.split(',').map(area => area.trim()),
         status: 'ongoing',
+        scheduledDate: scheduledDate, // I-save ang petsa
+        scheduledTime: scheduledTime, // I-save ang oras
         createdBy: auth.currentUser?.uid,
         timestamp: serverTimestamp(),
       });
@@ -97,14 +99,13 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
 
   return (
     <IonPage>
-      <IonHeader>
+      <IonHeader className="ion-no-border">
         <IonToolbar color="primary">
-          <IonTitle>Manage Announcements</IonTitle>
+          <IonTitle style={{ fontWeight: 'bold' }}>Manage Announcements</IonTitle>
         </IonToolbar>
       </IonHeader>
       <IonContent className="ion-padding">
         
-        {/* Dito, nakalagay ang tamang pangalan ng branch */}
         <IonCard color="light" style={{ margin: '0 0 15px 0' }}>
           <IonCardHeader>
             <IonCardSubtitle>
@@ -135,6 +136,34 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
               <IonSelectOption value="unexpected">Unexpected Outage</IonSelectOption>
             </IonSelect>
           </IonItem>
+
+          {/* DATE AND TIME PICKERS */}
+          <IonItem>
+            <IonLabel position="stacked">Petsa ng Outage</IonLabel>
+            <IonDatetimeButton datetime="date-picker"></IonDatetimeButton>
+            <IonModal keepContentsMounted={true}>
+              <IonDatetime 
+                id="date-picker" 
+                presentation="date" 
+                value={scheduledDate}
+                onIonChange={e => setScheduledDate(e.detail.value as string)}
+              ></IonDatetime>
+            </IonModal>
+          </IonItem>
+
+          <IonItem>
+            <IonLabel position="stacked">Oras ng Outage</IonLabel>
+            <IonDatetimeButton datetime="time-picker"></IonDatetimeButton>
+            <IonModal keepContentsMounted={true}>
+              <IonDatetime 
+                id="time-picker" 
+                presentation="time" 
+                value={scheduledTime}
+                onIonChange={e => setScheduledTime(e.detail.value as string)}
+              ></IonDatetime>
+            </IonModal>
+          </IonItem>
+
           <IonItem>
             <IonLabel position="stacked">Affected Barangay/s</IonLabel>
             <IonInput value={affectedAreas} onIonChange={e => setAffectedAreas(e.detail.value!)} placeholder="Hal: Brgy. Poblacion, Brgy. Sta. Maria" />
@@ -154,6 +183,17 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
               </IonCardHeader>
               <IonCardContent>
                 <p>{ann.description}</p>
+                {/* IPAKITA ANG PETSA AT ORAS DITO */}
+                {ann.scheduledDate && (
+                  <p style={{ fontSize: '0.85em', color: 'gray' }}>
+                    <strong>Petsa:</strong> {new Date(ann.scheduledDate).toLocaleDateString()}
+                  </p>
+                )}
+                {ann.scheduledTime && (
+                  <p style={{ fontSize: '0.85em', color: 'gray' }}>
+                    <strong>Oras:</strong> {new Date(ann.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                )}
                 <p style={{ fontSize: '0.85em', color: 'gray' }}>
                   <strong>Affected Barangay/s:</strong> {ann.affectedAreas?.join(', ')}
                 </p>
