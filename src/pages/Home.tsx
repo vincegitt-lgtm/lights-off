@@ -3,8 +3,7 @@ import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardH
 import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
-import { partlySunnyOutline, warningOutline, calendarOutline, timeOutline } from 'ionicons/icons';
-import { CapacitorCalendar } from '@capacitor/calendar'; // <-- IMPORT
+import { partlySunnyOutline, warningOutline, calendarOutline, timeOutline, downloadOutline } from 'ionicons/icons';
 
 const Home: React.FC = () => {
   const [announcements, setAnnouncements] = useState<any[]>([]);
@@ -74,23 +73,37 @@ const Home: React.FC = () => {
     return () => { if (unsubscribe) unsubscribe(); };
   }, []);
 
-  const handleSetReminder = async (ann: any) => {
+  // FUNCTION PARA MAKA-DOWNLOAD NG .ICS FILE (CALENDAR REMINDER)
+  const handleSetReminder = (ann: any) => {
     try {
-      // Pagsamahin ang Date at Time para maging isang Date object
       const eventDate = new Date(`${ann.scheduledDate.split('T')[0]}T${ann.scheduledTime.split('T')[1]}`);
+      const endDate = new Date(eventDate.getTime() + 60 * 60 * 1000);
+
+      // Format para sa .ics file
+      const formatDate = (date: Date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
       
-      await CapacitorCalendar.createEvent({
-        title: `Brownout: ${ann.title}`,
-        startDate: eventDate.getTime(),
-        endDate: eventDate.getTime() + 60 * 60 * 1000, // 1 hour duration
-        location: ann.affectedAreas.join(', '),
-        description: ann.description,
-      });
+      const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:${formatDate(eventDate)}
+DTEND:${formatDate(endDate)}
+SUMMARY:Brownout: ${ann.title}
+DESCRIPTION:${ann.description}
+LOCATION:${ann.affectedAreas.join(', ')}
+END:VEVENT
+END:VCALENDAR`;
+
+      const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `brownout-reminder.ics`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       
-      alert('Na-save sa Calendar ang reminder!');
+      alert('Na-download ang reminder file. Buksan ito para maidagdag sa Calendar.');
     } catch (error) {
-      console.error('Error saving to calendar:', error);
-      alert('Hindi ma-save sa calendar. Tiyakin na may permission ang app.');
+      console.error('Error:', error);
     }
   };
 
@@ -163,7 +176,7 @@ const Home: React.FC = () => {
                 {/* SET REMINDER BUTTON */}
                 {ann.scheduledDate && ann.scheduledTime && (
                   <IonButton expand="block" fill="outline" color="warning" className="ion-margin-top" onClick={() => handleSetReminder(ann)}>
-                    <IonIcon slot="start" icon={calendarOutline} /> Set Reminder
+                    <IonIcon slot="start" icon={downloadOutline} /> Set Reminder
                   </IonButton>
                 )}
               </IonCardContent>

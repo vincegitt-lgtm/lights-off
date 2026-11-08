@@ -14,6 +14,7 @@
   "dependencies": {
     "@capacitor/calendar": "^1.0.1",
     "@capacitor/camera": "^8.2.6",
+    "@capgo/capacitor-calendar": "^8.0.15",
     "@ionic/react": "^9.0.0",
     "@ionic/react-router": "^9.0.0",
     "browser-image-compression": "^2.0.2",
