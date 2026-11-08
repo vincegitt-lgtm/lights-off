@@ -1,9 +1,7 @@
-/// <reference types="vitest" />
-
+import { defineConfig } from 'vite'
 import legacy from '@vitejs/plugin-legacy'
 import react from '@vitejs/plugin-react'
 import basicSsl from '@vitejs/plugin-basic-ssl'
-import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [
@@ -12,12 +10,7 @@ export default defineConfig({
     basicSsl()
   ],
   server: {
-    https: {}, // Ito ang tamang syntax sa Vite v5 (hindi true)
+    https: {},
     host: 'localhost'
-  },
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: './src/setupTests.ts',
   }
 })

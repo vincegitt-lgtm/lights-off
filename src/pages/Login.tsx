@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonItem, IonLabel, IonInput, IonButton, IonText, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonIcon } from '@ionic/react';
 import { signInWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 import { eyeOutline, eyeOffOutline, logoGoogle } from 'ionicons/icons';
@@ -21,7 +21,6 @@ const Login: React.FC = () => {
     setError('');
     try {
       const provider = new GoogleAuthProvider();
-      // Gagamitin natin ang signInWithPopup dahil naka-HTTPS na tayo
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
@@ -34,16 +33,12 @@ const Login: React.FC = () => {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       
       if (!userDoc.exists()) {
-        // Kung bagong Google user, awtomatikong gumawa ng consumer account
-        await setDoc(doc(db, 'users', user.uid), {
+        localStorage.setItem('googleUser', JSON.stringify({
           uid: user.uid,
           email: user.email,
-          name: user.displayName || 'Google User',
-          role: 'consumer',
-          branch: 'Naujan',
-          address: 'Hindi pa nailalagay',
-        });
-        navigate('/home');
+          name: user.displayName || 'Google User'
+        }));
+        navigate('/profile-setup');
       } else {
         const userData = userDoc.data();
         if (userData.role === 'admin') navigate('/admin');
@@ -103,7 +98,8 @@ const Login: React.FC = () => {
 
   return (
     <IonPage>
-      <IonContent className="ion-padding" style={{ '--background': 'var(--ion-background-color)' }}>
+      {/* TINANGGAL ANG style={{ '--background': ... }} DITO */}
+      <IonContent className="ion-padding">
         
         <div style={{ textAlign: 'center', marginTop: '40px', marginBottom: '30px' }}>
           <img src={logo} alt="LightsOff Logo" style={{ width: '150px', height: '150px', objectFit: 'contain', marginBottom: '15px' }} />

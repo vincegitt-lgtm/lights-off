@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonItem, IonLabel, IonInput, IonButton, IonSelect, IonSelectOption, IonText, IonIcon, IonCheckbox } from '@ionic/react';
-import { createUserWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonItem, IonLabel, IonInput, IonButton, IonSelect, IonSelectOption, IonText, IonIcon, IonCheckbox, IonButtons, IonBackButton } from '@ionic/react';
+import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 import { eyeOutline, eyeOffOutline, logoGoogle } from 'ionicons/icons';
@@ -37,17 +37,24 @@ const Register: React.FC = () => {
         return;
       }
 
-      await setDoc(doc(db, 'users', user.uid), {
-        uid: user.uid,
-        email: user.email,
-        name: user.displayName || 'Google User',
-        role: 'consumer',
-        branch: 'Naujan',
-        address: 'Hindi pa nailalagay',
-      });
+      // CHECK KUNG EXISTING USER NA
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      
+      if (userDoc.exists()) {
+        // Kung existing user na, deretso sa Home/Admin
+        const userData = userDoc.data();
+        if (userData.role === 'admin') navigate('/admin');
+        else navigate('/home');
+      } else {
+        // KUNG BAGONG USER: I-save sa localStorage at pumunta sa Profile Setup
+        localStorage.setItem('googleUser', JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          name: user.displayName || 'Google User'
+        }));
+        navigate('/profile-setup');
+      }
 
-      alert('Matagumpay ang registration gamit ang Google!');
-      navigate('/home');
     } catch (err: any) {
       if (err.code !== 'auth/popup-closed-by-user') setError(err.message);
     }
@@ -92,6 +99,14 @@ const Register: React.FC = () => {
 
   return (
     <IonPage>
+      <IonHeader className="ion-no-border">
+        <IonToolbar color="primary">
+          <IonButtons slot="start">
+            <IonBackButton defaultHref="/login" />
+          </IonButtons>
+          <IonTitle style={{ fontWeight: 'bold' }}>Create Account</IonTitle>
+        </IonToolbar>
+      </IonHeader>
       <IonContent className="ion-padding">
         <div style={{ textAlign: 'center', marginTop: '20px', marginBottom: '20px' }}>
           <img src={logo} alt="LightsOff Logo" style={{ width: '100px', height: '100px', objectFit: 'contain', marginBottom: '10px' }} />
@@ -148,7 +163,7 @@ const Register: React.FC = () => {
               color="success"
             />
             <IonLabel className="ion-text-wrap" style={{ fontSize: '0.85em', marginLeft: '10px' }}>
-              I have read and agree to the <strong style={{ color: 'var(--app-green)' }}>Terms and Conditions</strong>. I understand that I am required to provide accurate personal information (Name, Address, Email) for this app.
+              I have read and agree to the <strong style={{ color: 'var(--app-green)' }}>Terms and Conditions</strong>. I understand that I am required to provide accurate personal information.
             </IonLabel>
           </IonItem>
 
