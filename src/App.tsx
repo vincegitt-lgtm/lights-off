@@ -6,7 +6,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Admin from './pages/Admin';
 import Consumer from './pages/Consumer';
-import ProfileSetup from './pages/ProfileSetup'; // <-- IDINAGDAG ITO
+import ProfileSetup from './pages/ProfileSetup'; // <-- IDINAGDAG
 import { LanguageProvider } from './context/LanguageContext';
 
 setupIonicReact();
@@ -18,9 +18,7 @@ const App: React.FC = () => (
         <IonRouterOutlet>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          
-          {/* BAGONG ROUTE PARA SA PROFILE SETUP */}
-          <Route path="/profile-setup" element={<ProfileSetup />} />
+          <Route path="/profile-setup" element={<ProfileSetup />} /> {/* <-- IDINAGDAG */}
           
           <Route path="/home/*" element={<Consumer />} />
           <Route path="/my-reports/*" element={<Consumer />} />
@@ -36,4 +34,4 @@ const App: React.FC = () => (
   </IonApp>
 );
 
-export default App; 
+export default App;
