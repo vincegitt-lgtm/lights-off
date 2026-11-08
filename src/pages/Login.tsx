@@ -21,6 +21,8 @@ const Login: React.FC = () => {
     setError('');
     try {
       const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' }); // LAGING MAGPAPAKITA NG ACCOUNT PICKER
+      
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
@@ -33,7 +35,6 @@ const Login: React.FC = () => {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       
       if (!userDoc.exists()) {
-        // BAGONG USER: I-save at pumunta agad sa Profile Setup (Walang alert)
         localStorage.setItem('googleUser', JSON.stringify({
           uid: user.uid,
           email: user.email,
