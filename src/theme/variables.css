@@ -1,197 +1,92 @@
 /* =========================================
-   IONIC VARIABLES AND THEMING (GREEN & BLACK)
+   THEME (GREEN, YELLOW, DARK)
 ========================================= */
 :root {
-  /** primary (Deep Black para sa headers at main elements) **/
-  --ion-color-primary: #121212; 
-  --ion-color-primary-rgb: 18, 18, 18;
+  /* Primary: Green (base sa logo) */
+  --ion-color-primary: #00C853;
+  --ion-color-primary-rgb: 0, 200, 83;
   --ion-color-primary-contrast: #ffffff;
   --ion-color-primary-contrast-rgb: 255, 255, 255;
-  --ion-color-primary-shade: #101010;
-  --ion-color-primary-tint: #2a2a2a;
+  --ion-color-primary-shade: #00b049;
+  --ion-color-primary-tint: #1ace65;
 
-  /** secondary (Vibrant Green para sa highlights) **/
-  --ion-color-secondary: #00C853;
-  --ion-color-secondary-rgb: 0, 200, 83;
-  --ion-color-secondary-contrast: #ffffff;
-  --ion-color-secondary-contrast-rgb: 255, 255, 255;
-  --ion-color-secondary-shade: #00b049;
-  --ion-color-secondary-tint: #1ace65;
+  /* Secondary: Yellow (highlights) */
+  --ion-color-secondary: #FFD600;
+  --ion-color-secondary-rgb: 255, 214, 0;
+  --ion-color-secondary-contrast: #000000;
+  --ion-color-secondary-contrast-rgb: 0, 0, 0;
+  --ion-color-secondary-shade: #e0bc00;
+  --ion-color-secondary-tint: #ffda1a;
 
-  /** tertiary (Vibrant Yellow para sa important buttons/numbers) **/
-  --ion-color-tertiary: #FFD600;
-  --ion-color-tertiary-rgb: 255, 214, 0;
-  --ion-color-tertiary-contrast: #000000;
-  --ion-color-tertiary-contrast-rgb: 0, 0, 0;
-  --ion-color-tertiary-shade: #e0bc00;
-  --ion-color-tertiary-tint: #ffda1a;
-
-  /** success, danger, etc. **/
-  --ion-color-success: #2dd36f;
-  --ion-color-danger: #eb445a;
-
-  /** Backgrounds (Light Mode) **/
-  --ion-background-color: #F8F9FA; /* Off-white */
-  --ion-text-color: #121212; /* Black text */
-
-  /* Custom App Variables */
-  --app-black: #121212;
+  /* Backgrounds (Light Mode) */
+  --ion-background-color: #F8F9FA;
+  --ion-text-color: #121212;
+  
   --app-green: #00C853;
   --app-yellow: #FFD600;
-  --app-gray: #F0F2F5;
+  --app-black: #121212;
 }
 
 /* =========================================
-   GLOBAL STYLES
-========================================= */
-ion-card {
-  border-radius: 20px !important;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
-  margin: 16px 0 !important;
-}
-
-ion-button {
-  --border-radius: 12px;
-  font-weight: 700;
-  text-transform: none;
-  letter-spacing: 0.5px;
-}
-
-.stat-number {
-  font-size: 2.4rem;
-  font-weight: 900;
-  margin: 0;
-  line-height: 1;
-}
-
-.stat-label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  margin-top: 5px;
-  opacity: 0.9;
-}
-
-/* =========================================
-   TAB BAR (LIGHT & DARK)
-========================================= */
-ion-tab-bar {
-  --background: #ffffff;
-  --color: #8c8c8c; 
-  --color-selected: #121212; /* Black kapag active */
-  border-top: 1px solid #e0e0e0;
-}
-
-/* Dark Mode Tab Bar */
-body.dark ion-tab-bar {
-  --background: #121212; 
-  --color: #6e7a8a; 
-  --color-selected: #00C853; /* Green kapag active sa dark */
-  border-top: 1px solid #2a2a2a;
-}
-
-/* =========================================
-   CUSTOM TOGGLE SWITCH THEME
-========================================= */
-ion-toggle {
-  --track-background: #e0e0e0;
-  --track-background-checked: #00C853;
-  --handle-background: #ffffff;
-  --handle-background-checked: #ffffff;
-}
-
-body.dark ion-toggle {
-  --track-background: #2a2a2a;
-  --track-background-checked: #00C853;
-  --handle-background: #6e7a8a;
-  --handle-background-checked: #ffffff; 
-}
-
-body.dark ion-list {
-  background: transparent !important;
-}
-
-/* =========================================
-   DARK MODE THEME (BLACK & GREEN)
+   DARK MODE
 ========================================= */
 body.dark {
-  --ion-color-primary: #121212; 
-  --ion-color-primary-rgb: 18, 18, 18;
-  --ion-color-primary-contrast: #ffffff;
-  --ion-color-primary-shade: #101010;
-  --ion-color-primary-tint: #2a2a2a;
-
-  --ion-background-color: #000000; /* Pure black */
-  --ion-background-color-rgb: 0, 0, 0;
+  --ion-background-color: #121212;
+  --ion-background-color-rgb: 18, 18, 18;
   --ion-text-color: #ffffff;
   --ion-text-color-rgb: 255, 255, 255;
+  
+  --ion-card-background: #1E1E1E;
+  --ion-item-background: #1E1E1E;
+}
 
-  --ion-card-background: #121212;
-  --ion-item-background: #1c1c1c;
+/* DARK MODE INPUT FIX (Dark bg, White text) */
+body.dark ion-input,
+body.dark ion-textarea,
+body.dark ion-select {
+  --color: #ffffff !important;
+  --placeholder-color: #aaaaaa !important;
+  --background: #2C2C2C !important; /* Dark gray background */
+  border-radius: 8px;
+  margin: 5px 0;
 }
 
 body.dark ion-item {
-  --background: #1c1c1c !important; 
-  --color: #ffffff !important;
-  border-radius: 12px;
-  margin-bottom: 10px;
-}
-
-body.dark ion-input, 
-body.dark ion-select, 
-body.dark ion-textarea {
-  --color: #ffffff !important;
-  --placeholder-color: #8892b0 !important;
-}
-
-/* Green ang default button sa dark mode, Yellow ang special */
-body.dark ion-button {
-  --background: #00C853 !important; 
-  --color: #ffffff !important;      
-  font-weight: bold;
-}
-
-body.dark ion-button[fill="clear"] {
   --background: transparent !important;
-  --color: #00C853 !important; 
-}
-
-body.dark ion-segment {
-  --background: #1c1c1c !important;
-}
-body.dark ion-segment-button {
-  --color: #8892b0 !important;
-  --color-checked: #00C853 !important;
-  --indicator-color: #00C853 !important;
+  --color: #ffffff;
 }
 
 body.dark ion-label {
   color: #ffffff !important;
 }
 
-body.dark h1, body.dark h2, body.dark h3, body.dark p {
+body.dark h1, body.dark h2, body.dark h3, body.dark p, body.dark span {
   color: #ffffff;
 }
 
-/* Fix Accordion Text sa Dark Mode */
-body.dark ion-accordion ion-item[slot="header"] {
-  --color: #121212 !important;
-}
-body.dark ion-accordion ion-item[slot="header"] ion-label {
-  color: #121212 !important;
-}
-body.dark ion-accordion ion-item[slot="header"] ion-icon {
-  color: #121212 !important;
+/* LIGHT MODE INPUT FIX (Light bg, Black text) */
+ion-input,
+ion-textarea,
+ion-select {
+  --background: #f0f0f0; /* Light gray background */
+  --color: #000000; /* Black text */
+  border-radius: 8px;
+  margin: 5px 0;
 }
 
-/* Fix Dropdown/Select */
-body.dark ion-alert {
-  --background: #1c1c1c !important;
-  --color: #ffffff !important;
+/* =========================================
+   TAB BAR
+========================================= */
+ion-tab-bar {
+  --background: #ffffff;
+  --color: #8c8c8c;
+  --color-selected: #00C853; /* Green active tab */
+  border-top: 1px solid #e0e0e0;
 }
-body.dark ion-alert .alert-radio-label {
-  color: #ffffff !important;
-}
-body.dark ion-alert .alert-button {
-  color: #00C853 !important; 
-  font-weight: bold;
+
+body.dark ion-tab-bar {
+  --background: #1E1E1E;
+  --color: #6e7a8a;
+  --color-selected: #FFD600; /* Yellow active tab sa dark */
+  border-top: 1px solid #333;
 }
