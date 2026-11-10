@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardContent, IonItem, IonLabel, IonInput, IonButton, IonIcon, IonSpinner, IonAvatar, IonCardHeader, IonCardTitle, IonCardSubtitle, IonSelect, IonSelectOption, IonModal, IonAlert, IonText } from '@ionic/react';
+import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardContent, IonItem, IonLabel, IonInput, IonButton, IonIcon, IonSpinner, IonAvatar, IonCardHeader, IonCardTitle, IonCardSubtitle, IonText, IonModal } from '@ionic/react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { signOut, updatePassword } from 'firebase/auth';
 import { auth, db } from '../firebase';

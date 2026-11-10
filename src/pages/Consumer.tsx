@@ -4,7 +4,7 @@ import { Route, Navigate } from 'react-router-dom';
 import Home from './Home';
 import MyReports from './MyReports';
 import ConsumerSettings from './ConsumerSettings';
-import ConsumerProfile from './ConsumerProfile';
+import ConsumerProfile from './ConsumerProfile'; // <-- IMPORT
 
 const Consumer: React.FC = () => {
   return (
@@ -13,7 +13,7 @@ const Consumer: React.FC = () => {
         <Route path="/home" element={<Home />} />
         <Route path="/my-reports" element={<MyReports />} />
         <Route path="/settings" element={<ConsumerSettings />} />
-        <Route path="/profile" element={<ConsumerProfile />} />
+        <Route path="/profile" element={<ConsumerProfile />} /> {/* <-- ROUTE */}
         <Route path="/consumer" element={<Navigate to="/home" replace />} />
       </IonRouterOutlet>
 
