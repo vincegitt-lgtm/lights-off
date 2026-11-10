@@ -1,19 +1,12 @@
 import { useState, useEffect } from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonList, IonItem, IonLabel, IonButton, IonIcon, IonText, IonSpinner, IonAvatar, IonCard, IonCardHeader, IonCardContent, IonCardSubtitle, IonCardTitle, IonToggle, IonSelect, IonSelectOption } from '@ionic/react';
-import { doc, getDoc } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
-import { auth, db } from '../firebase';
-import { logOutOutline, personCircleOutline, businessOutline, moonOutline, sunnyOutline, globeOutline } from 'ionicons/icons';
-import { useNavigate } from 'react-router-dom';
+import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardContent, IonItem, IonLabel, IonSelect, IonSelectOption, IonToggle, IonSpinner } from '@ionic/react';
 import { useLanguage } from '../context/LanguageContext';
 
 const AdminSettings: React.FC = () => {
-  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  
-  const navigate = useNavigate();
-  const { lang, setLang, t } = useLanguage();
+  const [notifications, setNotifications] = useState(true);
+  const { lang, setLang } = useLanguage();
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -21,18 +14,7 @@ const AdminSettings: React.FC = () => {
       setIsDarkMode(true);
       document.body.classList.add('dark');
     }
-
-    const fetchProfile = async () => {
-      const user = auth.currentUser;
-      if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          setProfile(userDoc.data());
-        }
-      }
-      setLoading(false);
-    };
-    fetchProfile();
+    setLoading(false);
   }, []);
 
   const toggleTheme = (e: any) => {
@@ -47,76 +29,53 @@ const AdminSettings: React.FC = () => {
     }
   };
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    navigate('/login');
-  };
-
   if (loading) return <div style={{ textAlign: 'center', marginTop: '50px' }}><IonSpinner name="crescent" /></div>;
 
   return (
     <IonPage>
       <IonHeader className="ion-no-border">
         <IonToolbar color="primary">
-          <IonTitle style={{ fontWeight: 'bold' }}>{t('profile')}</IonTitle>
+          <IonTitle style={{ fontWeight: 'bold' }}>Settings</IonTitle>
         </IonToolbar>
       </IonHeader>
-      <IonContent className="ion-padding">
-        
-        {/* PROFILE CARD */}
-        <IonCard style={{ textAlign: 'center', marginTop: '20px', borderRadius: '16px' }}>
-          <IonCardHeader style={{ paddingBottom: '0' }}>
-            <IonAvatar style={{ width: '80px', height: '80px', margin: '0 auto' }}>
-              <IonIcon icon={personCircleOutline} style={{ fontSize: '80px', color: 'var(--ion-color-medium)' }} />
-            </IonAvatar>
-            <IonCardTitle style={{ marginTop: '15px', fontWeight: 'bold', fontSize: '1.5em' }}>
-              {profile?.name || 'Admin'}
-            </IonCardTitle>
-            <IonCardSubtitle>{profile?.email}</IonCardSubtitle>
-          </IonCardHeader>
-          <IonCardContent>
-            <IonItem lines="none" style={{ '--background': 'transparent', '--padding-start': '0' }}>
-              <IonIcon slot="start" icon={businessOutline} color="primary" />
-              <IonLabel color="medium">Assigned Branch</IonLabel>
-              <IonText slot="end" color="primary" style={{ fontWeight: 'bold' }}>
-                {profile?.branch}
-              </IonText>
-            </IonItem>
-          </IonCardContent>
-        </IonCard>
+      <IonContent>
+        <div style={{ padding: '20px', backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#111', margin: '0 0 20px 0' }}>Settings</h1>
 
-        {/* THEME SETTINGS SECTION */}
-        <h3 style={{ marginTop: '30px', fontWeight: 'bold', marginLeft: '10px' }}>{t('appearance')}</h3>
-        
-        {/* LANGUAGE SELECTOR */}
-        <IonCard style={{ margin: '10px 0', borderRadius: '12px' }}>
-          <IonItem lines="none">
-            <IonIcon slot="start" icon={globeOutline} color="primary" size="large" />
-            <IonLabel>{t('language')}</IonLabel>
-            <IonSelect value={lang} onIonChange={(e) => setLang(e.detail.value)}>
-              <IonSelectOption value="en">{t('english')}</IonSelectOption>
-              <IonSelectOption value="fil">{t('filipino')}</IonSelectOption>
-            </IonSelect>
-          </IonItem>
-        </IonCard>
+          <IonCard style={{ margin: '0 0 15px 0', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <IonCardContent>
+              <IonItem lines="none">
+                <IonLabel>
+                  <h2 style={{ fontWeight: 'bold', fontSize: '1rem' }}>Outage notifications</h2>
+                  <p style={{ fontSize: '0.85em' }}>Alert me about new announcements</p>
+                </IonLabel>
+                <IonToggle checked={notifications} onIonChange={(e) => setNotifications(e.detail.checked)} color="success" />
+              </IonItem>
+            </IonCardContent>
+          </IonCard>
 
-        {/* DARK MODE TOGGLE */}
-        <IonCard style={{ margin: '10px 0', borderRadius: '12px' }}>
-          <IonItem lines="none">
-            <IonIcon slot="start" icon={isDarkMode ? moonOutline : sunnyOutline} color={isDarkMode ? "warning" : "primary"} size="large" />
-            <IonLabel>
-              <h2 style={{ fontWeight: 'bold' }}>{t('darkMode')}</h2>
-              <p>Palitan ang kulay ng app</p>
-            </IonLabel>
-            <IonToggle checked={isDarkMode} onIonChange={toggleTheme} />
-          </IonItem>
-        </IonCard>
+          <IonCard style={{ margin: '0 0 15px 0', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <IonCardContent>
+              <IonLabel style={{ fontWeight: 'bold', marginBottom: '10px', display: 'block' }}>Appearance</IonLabel>
+              
+              <IonItem lines="none" style={{ marginBottom: '10px' }}>
+                <IonLabel>Theme</IonLabel>
+                <IonSelect value={isDarkMode ? 'dark' : 'light'} onIonChange={(e) => toggleTheme({ detail: { checked: e.detail.value === 'dark' } })}>
+                  <IonSelectOption value="light">Light</IonSelectOption>
+                  <IonSelectOption value="dark">Dark</IonSelectOption>
+                </IonSelect>
+              </IonItem>
 
-        {/* LOGOUT BUTTON */}
-        <IonButton expand="block" color="danger" className="ion-margin-top" onClick={handleLogout} style={{ marginTop: '30px', '--border-radius': '12px', height: '50px', fontWeight: 'bold' }}>
-          <IonIcon slot="start" icon={logOutOutline} /> {t('logout')}
-        </IonButton>
-
+              <IonItem lines="none">
+                <IonLabel>Language</IonLabel>
+                <IonSelect value={lang} onIonChange={(e) => setLang(e.detail.value)}>
+                  <IonSelectOption value="en">English</IonSelectOption>
+                  <IonSelectOption value="fil">Filipino</IonSelectOption>
+                </IonSelect>
+              </IonItem>
+            </IonCardContent>
+          </IonCard>
+        </div>
       </IonContent>
     </IonPage>
   );

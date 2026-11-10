@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonCardContent, IonGrid, IonRow, IonCol, IonButton, IonIcon, IonSpinner, IonModal, IonText, IonSegment, IonSegmentButton, IonLabel, IonList, IonItem, IonBadge } from '@ionic/react';
-import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardContent, IonGrid, IonRow, IonCol, IonButton, IonIcon, IonSpinner, IonBadge } from '@ionic/react';
+import { collection, query, where, onSnapshot, doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { partlySunnyOutline, addCircleOutline, listOutline, alertCircleOutline, expandOutline, closeOutline, mapOutline } from 'ionicons/icons';
+import { addCircleOutline, trashOutline } from 'ionicons/icons';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -27,49 +27,15 @@ const redIcon = new L.Icon({
   iconAnchor: [12, 41],
 });
 
-const yellowIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-gold.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
-
-const blueIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
-
-// Component para sa click event at pin
-function LocationMarker({ position, setPosition }: { position: any, setPosition: any }) {
-  useMapEvents({
-    click(e) {
-      setPosition(e.latlng);
-    },
-  });
-  return position === null ? null : (
-    <Marker position={position} icon={blueIcon}></Marker>
-  );
-}
-
 interface Props {
   adminBranch: string;
 }
 
 const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
   const [adminName, setAdminName] = useState('');
-  const [stats, setStats] = useState({ ongoing: 0, pending: 0, action: 0 });
-  const [weatherText, setWeatherText] = useState('Fetching...');
+  const [stats, setStats] = useState({ ongoing: 0, pending: 0, announcements: 0, resolved: 0 });
   const [loading, setLoading] = useState(true);
-  
-  // Map Modal & Bottom Sheet State
-  const [showMapModal, setShowMapModal] = useState(false);
-  const [mapTab, setMapTab] = useState<'reports' | 'announcements'>('reports');
-  
-  const [reports, setReports] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<any>(null);
   
   const navigate = useNavigate();
 
@@ -89,53 +55,51 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) setAdminName(userDoc.data().name);
       }
-
-      const [lat, lon] = getCenter(adminBranch);
-      try {
-        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=Asia%2FManila`);
-        const data = await res.json();
-        const code = data.current.weather_code;
-        let condition = "Clear";
-        if (code > 0 && code < 50) condition = "Cloudy";
-        if (code >= 51 && code <= 67) condition = "Raining";
-        if (code >= 80 && code <= 82) condition = "Heavy Rain";
-        if (code >= 95) condition = "Thunderstorm";
-        setWeatherText(`${condition} | ${data.current.temperature_2m}°C`);
-      } catch { setWeatherText('Unavailable'); }
-
       setLoading(false);
     };
     fetchAdminData();
 
-    const qAnnouncements = query(collection(db, 'announcements'), where('branch', '==', adminBranch), where('status', '==', 'ongoing'));
+    // Fetch Announcements
+    const qAnnouncements = query(
+      collection(db, 'announcements'), 
+      where('branch', '==', adminBranch)
+    );
+    
     const unsubAnn = onSnapshot(qAnnouncements, (snap) => {
-      setStats(prev => ({ ...prev, ongoing: snap.size }));
       const data: any[] = [];
       snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+      data.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+      
+      const ongoing = data.filter(d => d.status === 'ongoing').length;
+      const resolved = data.filter(d => d.status === 'restored').length;
       setAnnouncements(data);
+      
+      setStats({ 
+        ongoing, 
+        pending: 0, 
+        announcements: data.length, 
+        resolved 
+      });
     });
 
-    const qPending = query(collection(db, 'reports'), where('branch', '==', adminBranch), where('status', '==', 'pending'));
-    const unsubPen = onSnapshot(qPending, (snap) => {
-      setStats(prev => ({ ...prev, pending: snap.size }));
-      const data: any[] = [];
-      snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
-      setReports(data);
-    });
-
-    const qAction = query(collection(db, 'reports'), where('branch', '==', adminBranch), where('status', '==', 'approved'));
-    const unsubAct = onSnapshot(qAction, (snap) => {
-      setStats(prev => ({ ...prev, action: snap.size }));
-    });
-
-    return () => { unsubAnn(); unsubPen(); unsubAct(); };
+    return () => unsubAnn();
   }, [adminBranch]);
 
-  const handleUseLocation = () => {
-    if (selectedLocation) {
-      localStorage.setItem('pinnedLocation', JSON.stringify({ lat: selectedLocation.lat, lng: selectedLocation.lng }));
-      setShowMapModal(false);
-      navigate('/admin/announcements');
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Sigurado ka bang gusto mong burahin ito?')) {
+      try {
+        await deleteDoc(doc(db, 'announcements', id));
+      } catch (error) {
+        console.error("Error deleting:", error);
+      }
+    }
+  };
+
+  const handleRestore = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'announcements', id), { status: 'restored' });
+    } catch (error) {
+      console.error("Error updating:", error);
     }
   };
 
@@ -148,195 +112,137 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
           <IonTitle style={{ fontWeight: 'bold' }}>Dashboard</IonTitle>
         </IonToolbar>
       </IonHeader>
-      <IonContent className="ion-padding">
-        <h1 style={{ fontSize: '1.8rem', fontWeight: '800', marginBottom: '5px', color: 'var(--ion-text-color)' }}>
-          Hi, {adminName?.split(' ')[0]}!
-        </h1>
-        <p style={{ color: 'gray', marginTop: '0' }}>Here's the status of {adminBranch}.</p>
+      {/* TINANGGAL ANG style={{ '--background': ... }} DITO */}
+      <IonContent>
+        
+        <div style={{ padding: '20px', backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#111', margin: '0 0 5px 0' }}>
+            {adminBranch} Branch
+          </h1>
+          <p style={{ color: 'gray', marginTop: '0', marginBottom: '20px' }}>Welcome back, {adminName?.split(' ')[0]}</p>
 
-        {/* WEATHER CARD */}
-        <IonCard style={{ backgroundColor: 'var(--app-navy)', borderLeft: '5px solid var(--app-yellow)', margin: '20px 0' }}>
-          <IonCardHeader>
-            <IonCardSubtitle style={{ color: 'var(--app-yellow)', fontWeight: 'bold', letterSpacing: '1px' }}>
-              <IonIcon icon={partlySunnyOutline} /> CURRENT WEATHER
-            </IonCardSubtitle>
-            <IonCardTitle style={{ color: '#ffffff', fontSize: '1.8rem', fontWeight: '800', marginTop: '5px' }}>
-              {weatherText}
-            </IonCardTitle>
-          </IonCardHeader>
-        </IonCard>
+          {/* STATS CARDS */}
+          <IonGrid className="ion-no-padding">
+            <IonRow>
+              <IonCol size="6" style={{ padding: '5px' }}>
+                <IonCard style={{ margin: '0', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                  <IonCardContent style={{ padding: '15px' }}>
+                    <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: '#d32f2f', margin: '0' }}>{stats.ongoing}</h1>
+                    <p style={{ fontSize: '0.9rem', color: 'gray', margin: '5px 0 0 0' }}>Active outages</p>
+                  </IonCardContent>
+                </IonCard>
+              </IonCol>
+              <IonCol size="6" style={{ padding: '5px' }}>
+                <IonCard style={{ margin: '0', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                  <IonCardContent style={{ padding: '15px' }}>
+                    <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: '#1976d2', margin: '0' }}>0</h1>
+                    <p style={{ fontSize: '0.9rem', color: 'gray', margin: '5px 0 0 0' }}>New reports</p>
+                  </IonCardContent>
+                </IonCard>
+              </IonCol>
+              <IonCol size="6" style={{ padding: '5px' }}>
+                <IonCard style={{ margin: '0', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                  <IonCardContent style={{ padding: '15px' }}>
+                    <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: '#111', margin: '0' }}>{stats.announcements}</h1>
+                    <p style={{ fontSize: '0.9rem', color: 'gray', margin: '5px 0 0 0' }}>Announcements</p>
+                  </IonCardContent>
+                </IonCard>
+              </IonCol>
+              <IonCol size="6" style={{ padding: '5px' }}>
+                <IonCard style={{ margin: '0', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                  <IonCardContent style={{ padding: '15px' }}>
+                    <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: '#388e3c', margin: '0' }}>{stats.resolved}</h1>
+                    <p style={{ fontSize: '0.9rem', color: 'gray', margin: '5px 0 0 0' }}>Resolved</p>
+                  </IonCardContent>
+                </IonCard>
+              </IonCol>
+            </IonRow>
+          </IonGrid>
 
-        {/* STATS CARDS */}
-        <IonGrid className="ion-no-padding">
-          <IonRow>
-            <IonCol size="4">
-              <IonCard style={{ backgroundColor: 'var(--app-navy)', margin: '0', textAlign: 'center', borderRadius: '12px' }}>
-                <IonCardContent style={{ padding: '15px 5px' }}>
-                  <h1 style={{ color: 'var(--app-yellow)', fontSize: '2.2rem', fontWeight: '800', margin: '0' }}>{stats.ongoing}</h1>
-                  <p style={{ color: '#ffffff', fontSize: '0.75rem', margin: '5px 0 0 0', opacity: 0.8 }}>Active</p>
+          {/* MAP */}
+          <div style={{ height: '250px', width: '100%', borderRadius: '16px', overflow: 'hidden', marginTop: '20px', border: '1px solid #e0e0e0' }}>
+            <MapContainer 
+              center={getCenter(adminBranch)} 
+              zoom={11} 
+              style={{ height: '100%', width: '100%' }}
+              minZoom={10}
+              maxZoom={18}
+              maxBounds={[
+                [12.5, 120.5],
+                [13.8, 121.8]
+              ]}
+              maxBoundsViscosity={1.0}
+            >
+              <TileLayer 
+                url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" 
+                attribution='&copy; OpenStreetMap' 
+              />
+              
+              {announcements.filter(a => a.latitude && a.longitude).map(a => (
+                <Marker key={a.id} position={[a.latitude, a.longitude]} icon={redIcon}>
+                  <Popup><strong>{a.title}</strong><br/>{a.affectedAreas?.join(', ')}</Popup>
+                </Marker>
+              ))}
+            </MapContainer>
+          </div>
+
+          {/* LATEST ANNOUNCEMENTS */}
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '30px', marginBottom: '15px' }}>Latest announcements</h2>
+          
+          {announcements.length === 0 ? (
+            <p style={{ color: 'gray' }}>Walang announcements.</p>
+          ) : (
+            announcements.slice(0, 5).map((ann) => (
+              <IonCard key={ann.id} style={{ margin: '0 0 10px 0', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                <IonCardContent style={{ padding: '15px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                    <div>
+                      <h3 style={{ margin: '0 0 5px 0', fontWeight: 'bold', fontSize: '1rem' }}>{ann.title}</h3>
+                      <p style={{ margin: '0', fontSize: '0.9em', color: 'gray' }}>{ann.description}</p>
+                    </div>
+                    <IonBadge color={ann.type === 'unexpected' ? 'danger' : 'warning'} style={{ fontSize: '0.7em' }}>
+                      {ann.type === 'unexpected' ? 'Emergency' : 'Scheduled'}
+                    </IonBadge>
+                  </div>
+                  
+                  <p style={{ fontSize: '0.8em', color: 'gray', margin: '5px 0 15px 0' }}>
+                    {new Date(ann.startTime).toLocaleDateString()} • {new Date(ann.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
+                    {' to '} 
+                    {new Date(ann.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </p>
+                  
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <IonButton size="small" fill="outline" color="dark" style={{ '--border-radius': '8px' }} onClick={() => handleRestore(ann.id)}>
+                      Mark restored
+                    </IonButton>
+                    <IonButton size="small" fill="outline" color="danger" style={{ '--border-radius': '8px' }} onClick={() => handleDelete(ann.id)}>
+                      <IonIcon slot="start" icon={trashOutline} /> Delete
+                    </IonButton>
+                  </div>
                 </IonCardContent>
               </IonCard>
-            </IonCol>
-            <IonCol size="4">
-              <IonCard style={{ backgroundColor: 'var(--app-navy)', margin: '0', textAlign: 'center', borderRadius: '12px' }}>
-                <IonCardContent style={{ padding: '15px 5px' }}>
-                  <h1 style={{ color: 'var(--app-yellow)', fontSize: '2.2rem', fontWeight: '800', margin: '0' }}>{stats.pending}</h1>
-                  <p style={{ color: '#ffffff', fontSize: '0.75rem', margin: '5px 0 0 0', opacity: 0.8 }}>Pending</p>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-            <IonCol size="4">
-              <IonCard style={{ backgroundColor: 'var(--app-navy)', margin: '0', textAlign: 'center', borderRadius: '12px' }}>
-                <IonCardContent style={{ padding: '15px 5px' }}>
-                  <h1 style={{ color: 'var(--app-yellow)', fontSize: '2.2rem', fontWeight: '800', margin: '0' }}>{stats.action}</h1>
-                  <p style={{ color: '#ffffff', fontSize: '0.75rem', margin: '5px 0 0 0', opacity: 0.8 }}>To Fix</p>
-                </IonCardContent>
-              </IonCard>
-            </IonCol>
-          </IonRow>
-        </IonGrid>
+            ))
+          )}
 
-        {/* MINI MAP SECTION */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
-          <h2 style={{ fontWeight: '800', margin: 0 }}>Live Branch Map</h2>
-          <IonButton size="small" fill="outline" onClick={() => setShowMapModal(true)}>
-            <IonIcon slot="start" icon={expandOutline} /> Expand
+          {/* ADD ANNOUNCEMENT BUTTON */}
+          <IonButton 
+            expand="block" 
+            onClick={() => navigate('/admin/announcements')}
+            style={{ 
+              '--background': '#FFC107', 
+              '--color': '#000000', 
+              '--border-radius': '12px', 
+              height: '55px', 
+              fontWeight: 'bold', 
+              fontSize: '1rem',
+              marginTop: '30px',
+              marginBottom: '20px'
+            }}
+          >
+            <IonIcon slot="start" icon={addCircleOutline} /> Add announcement
           </IonButton>
+
         </div>
-        
-        <div style={{ height: '250px', width: '100%', borderRadius: '16px', overflow: 'hidden', marginTop: '10px', border: '2px solid var(--app-navy)' }}>
-          <MapContainer center={getCenter(adminBranch)} zoom={12} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
-            {/* PINALITAN ANG TILES PARA WALANG API KEY */}
-            <TileLayer 
-              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" 
-              attribution='&copy; OpenStreetMap' 
-            />
-            
-            {reports.filter(r => r.latitude && r.longitude).map(r => (
-              <Marker key={r.id} position={[r.latitude, r.longitude]} icon={redIcon}>
-                <Popup><strong>🔴 Report</strong><br/>{r.barangay}</Popup>
-              </Marker>
-            ))}
-
-            {announcements.filter(a => a.latitude && a.longitude).map(a => (
-              <Marker key={a.id} position={[a.latitude, a.longitude]} icon={yellowIcon}>
-                <Popup><strong>🟡 Announcement</strong><br/>{a.title}</Popup>
-              </Marker>
-            ))}
-          </MapContainer>
-        </div>
-
-        <h2 className="ion-margin-top" style={{ fontWeight: '800', marginBottom: '15px' }}>Quick Actions</h2>
-        
-        <IonButton expand="block" onClick={() => navigate('/admin/announcements')} style={{ '--background': 'var(--app-yellow)', '--color': '#000000', '--border-radius': '10px', height: '50px', fontWeight: 'bold', marginBottom: '10px' }}>
-          <IonIcon slot="start" icon={addCircleOutline} /> Post New Announcement
-        </IonButton>
-        
-        <IonButton expand="block" fill="outline" onClick={() => navigate('/admin/reports')} style={{ '--border-color': 'var(--app-navy)', '--color': 'var(--app-navy)', '--border-radius': '10px', height: '50px', fontWeight: 'bold', marginBottom: '10px' }}>
-          <IonIcon slot="start" icon={listOutline} /> Review Pending Reports
-        </IonButton>
-        
-        <IonButton expand="block" fill="outline" onClick={() => navigate('/admin/action')} style={{ '--border-color': 'var(--app-navy)', '--color': 'var(--app-navy)', '--border-radius': '10px', height: '50px', fontWeight: 'bold' }}>
-          <IonIcon slot="start" icon={alertCircleOutline} /> Action Required
-        </IonButton>
-
-        {/* FULL MAP MODAL WITH BOTTOM SHEET */}
-        <IonModal isOpen={showMapModal} onDidDismiss={() => { setShowMapModal(false); setSelectedLocation(null); }}>
-          <IonHeader>
-            <IonToolbar color="primary">
-              <IonTitle>Branch Map</IonTitle>
-              <IonButton slot="end" fill="clear" color="light" onClick={() => { setShowMapModal(false); setSelectedLocation(null); }}>
-                <IonIcon icon={closeOutline} />
-              </IonButton>
-            </IonToolbar>
-          </IonHeader>
-          <IonContent>
-            {/* MAP */}
-            <div style={{ height: '60vh', width: '100%' }}>
-              <MapContainer center={getCenter(adminBranch)} zoom={12} style={{ height: '100%', width: '100%' }}>
-                {/* PINALITAN DIN ITO */}
-                <TileLayer 
-                  url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" 
-                  attribution='&copy; OpenStreetMap' 
-                />
-                
-                {reports.filter(r => r.latitude && r.longitude).map(r => (
-                  <Marker key={r.id} position={[r.latitude, r.longitude]} icon={redIcon}>
-                    <Popup><strong>🔴 Report</strong><br/>{r.barangay}<br/>{r.description}</Popup>
-                  </Marker>
-                ))}
-
-                {announcements.filter(a => a.latitude && a.longitude).map(a => (
-                  <Marker key={a.id} position={[a.latitude, a.longitude]} icon={yellowIcon}>
-                    <Popup><strong>🟡 Announcement</strong><br/>{a.title}<br/>{a.description}</Popup>
-                  </Marker>
-                ))}
-                
-                <LocationMarker position={selectedLocation} setPosition={setSelectedLocation} />
-              </MapContainer>
-            </div>
-
-            {/* BOTTOM SHEET / LIST */}
-            <div style={{ padding: '15px', backgroundColor: 'var(--ion-background-color)', borderTopLeftRadius: '20px', borderTopRightRadius: '20px', marginTop: '-20px', position: 'relative', zIndex: 10, boxShadow: '0 -4px 10px rgba(0,0,0,0.1)' }}>
-              <IonSegment value={mapTab} onIonChange={e => setMapTab(e.detail.value as any)} style={{ marginBottom: '15px' }}>
-                <IonSegmentButton value="reports">
-                  <IonLabel>Pending Reports ({reports.length})</IonLabel>
-                </IonSegmentButton>
-                <IonSegmentButton value="announcements">
-                  <IonLabel>Announcements ({announcements.length})</IonLabel>
-                </IonSegmentButton>
-              </IonSegment>
-
-              {/* REPORTS LIST */}
-              {mapTab === 'reports' && (
-                <IonList>
-                  {reports.length === 0 ? <IonText color="medium"><p>Walang pending reports.</p></IonText> : (
-                    reports.map(r => (
-                      <IonItem key={r.id} button onClick={() => {
-                        if (r.latitude && r.longitude) {
-                          // Pwede mong i-set ang center ng mapa dito kung gusto mo mag-zoom
-                          alert(`Report sa ${r.barangay}`);
-                        }
-                      }}>
-                        <IonBadge slot="start" color="danger">🔴</IonBadge>
-                        <IonLabel>
-                          <h3>{r.barangay}</h3>
-                          <p>{r.description}</p>
-                        </IonLabel>
-                      </IonItem>
-                    ))
-                  )}
-                </IonList>
-              )}
-
-              {/* ANNOUNCEMENTS LIST */}
-              {mapTab === 'announcements' && (
-                <IonList>
-                  {announcements.length === 0 ? <IonText color="medium"><p>Walang ongoing announcements.</p></IonText> : (
-                    announcements.map(a => (
-                      <IonItem key={a.id} button>
-                        <IonBadge slot="start" color="warning">🟡</IonBadge>
-                        <IonLabel>
-                          <h3>{a.title}</h3>
-                          <p>{a.affectedAreas?.join(', ')}</p>
-                        </IonLabel>
-                      </IonItem>
-                    ))
-                  )}
-                </IonList>
-              )}
-
-              {/* SELECTED LOCATION BUTTON */}
-              {selectedLocation && (
-                <IonButton expand="block" color="success" onClick={handleUseLocation} className="ion-margin-top">
-                  Use Pinned Location for Announcement
-                </IonButton>
-              )}
-
-            </div>
-          </IonContent>
-        </IonModal>
-
       </IonContent>
     </IonPage>
   );
