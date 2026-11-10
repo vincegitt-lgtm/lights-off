@@ -20,7 +20,11 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
   const [success, setSuccess] = useState('');
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [weatherText, setWeatherText] = useState('Fetching...');
-  const [submitting, setSubmitting] = useState(false); // Para sa loading state
+  const [submitting, setSubmitting] = useState(false);
+  
+  // Pinned Location State
+  const [pinnedLat, setPinnedLat] = useState<number | null>(null);
+  const [pinnedLng, setPinnedLng] = useState<number | null>(null);
 
   const getCoordinates = (branch: string) => {
     switch(branch) {
@@ -32,6 +36,14 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
   };
 
   useEffect(() => {
+    // Check kung may pinned location galing sa mapa
+    const savedPin = localStorage.getItem('pinnedLocation');
+    if (savedPin) {
+      const { lat, lng } = JSON.parse(savedPin);
+      setPinnedLat(lat);
+      setPinnedLng(lng);
+    }
+
     const fetchAdminWeather = async () => {
       const { lat, lon } = getCoordinates(adminBranch);
       try {
@@ -74,20 +86,22 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
     setSubmitting(true);
 
     try {
-      // GEOCODING: Kunin ang coordinates ng unang barangay na nilagay
-      let lat = null;
-      let lng = null;
-      const firstBarangay = affectedAreas.split(',')[0].trim();
-      
-      try {
-        const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(firstBarangay + ', Oriental Mindoro, Philippines')}`);
-        const geoData = await geoRes.json();
-        if (geoData && geoData.length > 0) {
-          lat = parseFloat(geoData[0].lat);
-          lng = parseFloat(geoData[0].lon);
+      // Gumamit ng pinned location kung meron, kung wala, mag-geocode
+      let finalLat = pinnedLat;
+      let finalLng = pinnedLng;
+
+      if (!finalLat || !finalLng) {
+        const firstBarangay = affectedAreas.split(',')[0].trim();
+        try {
+          const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(firstBarangay + ', Oriental Mindoro, Philippines')}`);
+          const geoData = await geoRes.json();
+          if (geoData && geoData.length > 0) {
+            finalLat = parseFloat(geoData[0].lat);
+            finalLng = parseFloat(geoData[0].lon);
+          }
+        } catch (geoErr) {
+          console.error("Geocoding error:", geoErr);
         }
-      } catch (geoErr) {
-        console.error("Geocoding error:", geoErr);
       }
 
       await addDoc(collection(db, 'announcements'), {
@@ -100,13 +114,19 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
         scheduledDate: scheduledDate,
         startTime: startTime,
         endTime: endTime,
-        latitude: lat,
-        longitude: lng,
+        latitude: finalLat,
+        longitude: finalLng,
         createdBy: auth.currentUser?.uid,
         timestamp: serverTimestamp(),
       });
+      
       setSuccess('Matagumpay na na-post ang announcement!');
       setTitle(''); setDescription(''); setAffectedAreas('');
+      
+      // Clear pinned location
+      localStorage.removeItem('pinnedLocation');
+      setPinnedLat(null);
+      setPinnedLng(null);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -140,6 +160,25 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
           </IonCardHeader>
         </IonCard>
 
+        {/* PINNED LOCATION INDICATOR */}
+        {pinnedLat && pinnedLng && (
+          <IonCard color="success" style={{ margin: '0 0 15px 0' }}>
+            <IonCardContent>
+              <IonText color="white">
+                <p style={{ margin: 0, fontWeight: 'bold' }}>📍 Naka-pin na Lokasyon</p>
+                <p style={{ margin: 0, fontSize: '0.85em' }}>Lat: {pinnedLat.toFixed(4)}, Lng: {pinnedLng.toFixed(4)}</p>
+              </IonText>
+              <IonButton size="small" fill="clear" color="light" onClick={() => {
+                localStorage.removeItem('pinnedLocation');
+                setPinnedLat(null);
+                setPinnedLng(null);
+              }}>
+                Clear Pin
+              </IonButton>
+            </IonCardContent>
+          </IonCard>
+        )}
+
         <h2>Create New Announcement</h2>
         
         {error && <IonText color="danger"><p>{error}</p></IonText>}
@@ -171,7 +210,7 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
           </IonItem>
 
           <IonItem>
-            <IonLabel position="stacked">Simula ng Outage (Start Time)</IonLabel>
+            <IonLabel position="stacked">Simula ng Outage</IonLabel>
             <IonDatetimeButton datetime="start-time-picker"></IonDatetimeButton>
             <IonModal keepContentsMounted={true}>
               <IonDatetime id="start-time-picker" presentation="time" value={startTime} onIonChange={e => setStartTime(e.detail.value as string)}></IonDatetime>
@@ -179,7 +218,7 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
           </IonItem>
 
           <IonItem>
-            <IonLabel position="stacked">Tapos ng Outage (End Time)</IonLabel>
+            <IonLabel position="stacked">Tapos ng Outage</IonLabel>
             <IonDatetimeButton datetime="end-time-picker"></IonDatetimeButton>
             <IonModal keepContentsMounted={true}>
               <IonDatetime id="end-time-picker" presentation="time" value={endTime} onIonChange={e => setEndTime(e.detail.value as string)}></IonDatetime>
