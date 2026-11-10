@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonCardContent, IonGrid, IonRow, IonCol, IonButton, IonIcon, IonSpinner, IonModal, IonText } from '@ionic/react';
+import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonCardContent, IonGrid, IonRow, IonCol, IonButton, IonIcon, IonSpinner, IonModal, IonText, IonSegment, IonSegmentButton, IonLabel, IonList, IonItem, IonBadge } from '@ionic/react';
 import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { partlySunnyOutline, addCircleOutline, listOutline, alertCircleOutline, expandOutline, closeOutline } from 'ionicons/icons';
+import { partlySunnyOutline, addCircleOutline, listOutline, alertCircleOutline, expandOutline, closeOutline, mapOutline } from 'ionicons/icons';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// Ayusin ang Leaflet Marker Icons
+// --- LEAFLET ICONS SETUP ---
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -41,14 +41,13 @@ const blueIcon = new L.Icon({
   iconAnchor: [12, 41],
 });
 
-// Component para sa click event
+// Component para sa click event at pin
 function LocationMarker({ position, setPosition }: { position: any, setPosition: any }) {
   useMapEvents({
     click(e) {
       setPosition(e.latlng);
     },
   });
-
   return position === null ? null : (
     <Marker position={position} icon={blueIcon}></Marker>
   );
@@ -63,11 +62,14 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
   const [stats, setStats] = useState({ ongoing: 0, pending: 0, action: 0 });
   const [weatherText, setWeatherText] = useState('Fetching...');
   const [loading, setLoading] = useState(true);
+  
+  // Map Modal & Bottom Sheet State
   const [showMapModal, setShowMapModal] = useState(false);
+  const [mapTab, setMapTab] = useState<'reports' | 'announcements'>('reports');
   
   const [reports, setReports] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<any>(null); // Para sa pin drop
+  const [selectedLocation, setSelectedLocation] = useState<any>(null);
   
   const navigate = useNavigate();
 
@@ -152,6 +154,7 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
         </h1>
         <p style={{ color: 'gray', marginTop: '0' }}>Here's the status of {adminBranch}.</p>
 
+        {/* WEATHER CARD */}
         <IonCard style={{ backgroundColor: 'var(--app-navy)', borderLeft: '5px solid var(--app-yellow)', margin: '20px 0' }}>
           <IonCardHeader>
             <IonCardSubtitle style={{ color: 'var(--app-yellow)', fontWeight: 'bold', letterSpacing: '1px' }}>
@@ -163,6 +166,7 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
           </IonCardHeader>
         </IonCard>
 
+        {/* STATS CARDS */}
         <IonGrid className="ion-no-padding">
           <IonRow>
             <IonCol size="4">
@@ -192,7 +196,7 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
           </IonRow>
         </IonGrid>
 
-        {/* MINI MAP */}
+        {/* MINI MAP SECTION */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
           <h2 style={{ fontWeight: '800', margin: 0 }}>Live Branch Map</h2>
           <IonButton size="small" fill="outline" onClick={() => setShowMapModal(true)}>
@@ -202,7 +206,11 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
         
         <div style={{ height: '250px', width: '100%', borderRadius: '16px', overflow: 'hidden', marginTop: '10px', border: '2px solid var(--app-navy)' }}>
           <MapContainer center={getCenter(adminBranch)} zoom={12} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
-            <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" attribution='&copy; CARTO' />
+            {/* PINALITAN ANG TILES PARA WALANG API KEY */}
+            <TileLayer 
+              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" 
+              attribution='&copy; OpenStreetMap' 
+            />
             
             {reports.filter(r => r.latitude && r.longitude).map(r => (
               <Marker key={r.id} position={[r.latitude, r.longitude]} icon={redIcon}>
@@ -232,7 +240,7 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
           <IonIcon slot="start" icon={alertCircleOutline} /> Action Required
         </IonButton>
 
-        {/* FULL MAP MODAL WITH PIN DROP */}
+        {/* FULL MAP MODAL WITH BOTTOM SHEET */}
         <IonModal isOpen={showMapModal} onDidDismiss={() => { setShowMapModal(false); setSelectedLocation(null); }}>
           <IonHeader>
             <IonToolbar color="primary">
@@ -243,9 +251,14 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
             </IonToolbar>
           </IonHeader>
           <IonContent>
-            <div style={{ height: '75vh', width: '100%' }}>
+            {/* MAP */}
+            <div style={{ height: '60vh', width: '100%' }}>
               <MapContainer center={getCenter(adminBranch)} zoom={12} style={{ height: '100%', width: '100%' }}>
-                <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" attribution='&copy; CARTO' />
+                {/* PINALITAN DIN ITO */}
+                <TileLayer 
+                  url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" 
+                  attribution='&copy; OpenStreetMap' 
+                />
                 
                 {reports.filter(r => r.latitude && r.longitude).map(r => (
                   <Marker key={r.id} position={[r.latitude, r.longitude]} icon={redIcon}>
@@ -259,24 +272,68 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
                   </Marker>
                 ))}
                 
-                {/* PIN DROP FEATURE */}
                 <LocationMarker position={selectedLocation} setPosition={setSelectedLocation} />
               </MapContainer>
             </div>
 
-            {selectedLocation && (
-              <div style={{ padding: '15px' }}>
-                <IonText color="medium">
-                  <p style={{ margin: '0 0 10px 0', fontSize: '0.9em' }}>
-                    📍 Pin Location: Lat {selectedLocation.lat.toFixed(4)}, Lng {selectedLocation.lng.toFixed(4)}
-                  </p>
-                </IonText>
-                <IonButton expand="block" color="success" onClick={handleUseLocation}>
-                  Use This Location for Announcement
-                </IonButton>
-              </div>
-            )}
+            {/* BOTTOM SHEET / LIST */}
+            <div style={{ padding: '15px', backgroundColor: 'var(--ion-background-color)', borderTopLeftRadius: '20px', borderTopRightRadius: '20px', marginTop: '-20px', position: 'relative', zIndex: 10, boxShadow: '0 -4px 10px rgba(0,0,0,0.1)' }}>
+              <IonSegment value={mapTab} onIonChange={e => setMapTab(e.detail.value as any)} style={{ marginBottom: '15px' }}>
+                <IonSegmentButton value="reports">
+                  <IonLabel>Pending Reports ({reports.length})</IonLabel>
+                </IonSegmentButton>
+                <IonSegmentButton value="announcements">
+                  <IonLabel>Announcements ({announcements.length})</IonLabel>
+                </IonSegmentButton>
+              </IonSegment>
 
+              {/* REPORTS LIST */}
+              {mapTab === 'reports' && (
+                <IonList>
+                  {reports.length === 0 ? <IonText color="medium"><p>Walang pending reports.</p></IonText> : (
+                    reports.map(r => (
+                      <IonItem key={r.id} button onClick={() => {
+                        if (r.latitude && r.longitude) {
+                          // Pwede mong i-set ang center ng mapa dito kung gusto mo mag-zoom
+                          alert(`Report sa ${r.barangay}`);
+                        }
+                      }}>
+                        <IonBadge slot="start" color="danger">🔴</IonBadge>
+                        <IonLabel>
+                          <h3>{r.barangay}</h3>
+                          <p>{r.description}</p>
+                        </IonLabel>
+                      </IonItem>
+                    ))
+                  )}
+                </IonList>
+              )}
+
+              {/* ANNOUNCEMENTS LIST */}
+              {mapTab === 'announcements' && (
+                <IonList>
+                  {announcements.length === 0 ? <IonText color="medium"><p>Walang ongoing announcements.</p></IonText> : (
+                    announcements.map(a => (
+                      <IonItem key={a.id} button>
+                        <IonBadge slot="start" color="warning">🟡</IonBadge>
+                        <IonLabel>
+                          <h3>{a.title}</h3>
+                          <p>{a.affectedAreas?.join(', ')}</p>
+                        </IonLabel>
+                      </IonItem>
+                    ))
+                  )}
+                </IonList>
+              )}
+
+              {/* SELECTED LOCATION BUTTON */}
+              {selectedLocation && (
+                <IonButton expand="block" color="success" onClick={handleUseLocation} className="ion-margin-top">
+                  Use Pinned Location for Announcement
+                </IonButton>
+              )}
+
+            </div>
           </IonContent>
         </IonModal>
 
