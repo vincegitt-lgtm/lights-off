@@ -1,5 +1,5 @@
 import { IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel, IonRouterOutlet } from '@ionic/react';
-import { homeOutline, megaphoneOutline, documentTextOutline, alertCircleOutline, personCircleOutline } from 'ionicons/icons';
+import { homeOutline, megaphoneOutline, documentTextOutline, alertCircleOutline, personCircleOutline, mapOutline } from 'ionicons/icons'; // <-- ADD mapOutline
 import { Route, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
@@ -10,6 +10,7 @@ import ManageAnnouncements from './ManageAnnouncements';
 import ManageReports from './ManageReports';
 import ActionRequired from './ActionRequired';
 import AdminSettings from './AdminSettings';
+import AdminMap from './AdminMap'; // <-- ADD AdminMap
 
 const Admin: React.FC = () => {
   const [adminBranch, setAdminBranch] = useState<string | null>(null);
@@ -39,6 +40,7 @@ const Admin: React.FC = () => {
         <Route path="/admin/announcements" element={<ManageAnnouncements adminBranch={adminBranch} />} />
         <Route path="/admin/reports" element={<ManageReports adminBranch={adminBranch} />} />
         <Route path="/admin/action" element={<ActionRequired adminBranch={adminBranch} />} />
+        <Route path="/admin/map" element={<AdminMap adminBranch={adminBranch} />} /> {/* ADD ROUTE */}
         <Route path="/admin/settings" element={<AdminSettings />} />
         <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
       </IonRouterOutlet>
@@ -60,7 +62,10 @@ const Admin: React.FC = () => {
           <IonIcon icon={alertCircleOutline} />
           <IonLabel style={{ fontSize: '0.7em' }}>Action</IonLabel>
         </IonTabButton>
-        {/* PINALITAN ANG ICON MULA settingsOutline PAPUNTANG personCircleOutline */}
+        <IonTabButton tab="map" href="/admin/map">
+          <IonIcon icon={mapOutline} />
+          <IonLabel style={{ fontSize: '0.7em' }}>Map</IonLabel>
+        </IonTabButton>
         <IonTabButton tab="settings" href="/admin/settings">
           <IonIcon icon={personCircleOutline} />
           <IonLabel style={{ fontSize: '0.7em' }}>Profile</IonLabel>

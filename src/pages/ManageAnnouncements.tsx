@@ -20,6 +20,7 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
   const [success, setSuccess] = useState('');
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [weatherText, setWeatherText] = useState('Fetching...');
+  const [submitting, setSubmitting] = useState(false); // Para sa loading state
 
   const getCoordinates = (branch: string) => {
     switch(branch) {
@@ -70,7 +71,25 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
       return;
     }
 
+    setSubmitting(true);
+
     try {
+      // GEOCODING: Kunin ang coordinates ng unang barangay na nilagay
+      let lat = null;
+      let lng = null;
+      const firstBarangay = affectedAreas.split(',')[0].trim();
+      
+      try {
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(firstBarangay + ', Oriental Mindoro, Philippines')}`);
+        const geoData = await geoRes.json();
+        if (geoData && geoData.length > 0) {
+          lat = parseFloat(geoData[0].lat);
+          lng = parseFloat(geoData[0].lon);
+        }
+      } catch (geoErr) {
+        console.error("Geocoding error:", geoErr);
+      }
+
       await addDoc(collection(db, 'announcements'), {
         title,
         description,
@@ -79,8 +98,10 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
         affectedAreas: affectedAreas.split(',').map(area => area.trim()),
         status: 'ongoing',
         scheduledDate: scheduledDate,
-        startTime: startTime, // <-- BAGO
-        endTime: endTime,     // <-- BAGO
+        startTime: startTime,
+        endTime: endTime,
+        latitude: lat,
+        longitude: lng,
         createdBy: auth.currentUser?.uid,
         timestamp: serverTimestamp(),
       });
@@ -88,6 +109,8 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
       setTitle(''); setDescription(''); setAffectedAreas('');
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -168,7 +191,9 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
             <IonInput value={affectedAreas} onIonChange={e => setAffectedAreas(e.detail.value!)} placeholder="Hal: Brgy. Poblacion, Brgy. Sta. Maria" />
           </IonItem>
         </IonList>
-        <IonButton expand="block" className="ion-margin-top" onClick={handleSubmit}>Post Announcement</IonButton>
+        <IonButton expand="block" className="ion-margin-top" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? 'Nagpo-post...' : 'Post Announcement'}
+        </IonButton>
 
         <h2 className="ion-margin-top">Current Announcements</h2>
         {announcements.length === 0 ? <p>Walang announcements.</p> : (
