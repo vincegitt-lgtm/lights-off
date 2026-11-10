@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardContent, IonGrid, IonRow, IonCol, IonButton, IonIcon, IonSpinner, IonBadge, IonList, IonItem, IonLabel } from '@ionic/react';
+import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardContent, IonGrid, IonRow, IonCol, IonButton, IonIcon, IonSpinner, IonBadge } from '@ionic/react';
 import { collection, query, where, onSnapshot, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { addCircleOutline, mapOutline, listOutline } from 'ionicons/icons';
+import { addCircleOutline, sunnyOutline, rainyOutline, cloudOutline, partlySunnyOutline, waterOutline } from 'ionicons/icons';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -27,12 +27,12 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
   const [adminName, setAdminName] = useState('');
   const [stats, setStats] = useState({ ongoing: 0, pending: 0, announcements: 0, resolved: 0 });
   const [loading, setLoading] = useState(true);
-  const [announcements, setAnnouncements] = useState<any[]>([]);
-  const [pendingReports, setPendingReports] = useState<any[]>([]);
-  const [verifiedReports, setVerifiedReports] = useState<any[]>([]); // Para sa mapa at listahan
+  const [verifiedReports, setVerifiedReports] = useState<any[]>([]); 
   
-  const [showList, setShowList] = useState(false); // Toggle para sa listahan sa ibaba
-  
+  // WEATHER STATE
+  const [weather, setWeather] = useState<any>(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
+
   const navigate = useNavigate();
 
   const getCenter = (branch: string): [number, number] => {
@@ -55,23 +55,34 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
     };
     fetchAdminData();
 
+    // FETCH WEATHER
+    const fetchWeather = async () => {
+      const [lat, lon] = getCenter(adminBranch);
+      try {
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&daily=precipitation_probability_max&timezone=Asia%2FManila`);
+        const data = await res.json();
+        setWeather({
+          temp: data.current.temperature_2m,
+          code: data.current.weather_code,
+          rainChance: data.daily.precipitation_probability_max[0]
+        });
+      } catch (error) { console.error(error); } finally { setWeatherLoading(false); }
+    };
+    fetchWeather();
+
+    // FETCH REPORTS
+    const qPending = query(collection(db, 'reports'), where('branch', '==', adminBranch), where('status', '==', 'pending'));
+    const unsubPending = onSnapshot(qPending, (snap) => {
+      setStats(prev => ({ ...prev, pending: snap.size }));
+    });
+
     const qAnn = query(collection(db, 'announcements'), where('branch', '==', adminBranch));
     const unsubAnn = onSnapshot(qAnn, (snap) => {
       const data: any[] = [];
       snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
-      setAnnouncements(data);
       setStats(prev => ({ ...prev, announcements: data.length, ongoing: data.filter(d => d.status === 'ongoing').length, resolved: data.filter(d => d.status === 'restored').length }));
     });
 
-    const qPending = query(collection(db, 'reports'), where('branch', '==', adminBranch), where('status', '==', 'pending'));
-    const unsubPending = onSnapshot(qPending, (snap) => {
-      const data: any[] = [];
-      snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
-      setPendingReports(data);
-      setStats(prev => ({ ...prev, pending: data.length }));
-    });
-
-    // Kunin ang VERIFIED reports para sa mapa at listahan
     const qVerified = query(collection(db, 'reports'), where('branch', '==', adminBranch), where('status', '==', 'approved'));
     const unsubVerified = onSnapshot(qVerified, (snap) => {
       const data: any[] = [];
@@ -79,8 +90,24 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
       setVerifiedReports(data);
     });
 
-    return () => { unsubAnn(); unsubPending(); unsubVerified(); };
+    return () => { unsubPending(); unsubAnn(); unsubVerified(); };
   }, [adminBranch]);
+
+  const getWeatherIcon = (code: number) => {
+    if (code === 0) return sunnyOutline;
+    if (code >= 1 && code <= 3) return partlySunnyOutline;
+    if (code >= 51 && code <= 67) return rainyOutline;
+    if (code >= 80 && code <= 82) return rainyOutline;
+    return cloudOutline;
+  };
+
+  const getWeatherText = (code: number) => {
+    if (code === 0) return "Sunny";
+    if (code >= 1 && code <= 3) return "Partly Cloudy";
+    if (code >= 51 && code <= 67) return "Rainy";
+    if (code >= 80 && code <= 82) return "Heavy Rain";
+    return "Cloudy";
+  };
 
   if (loading) return <div style={{ textAlign: 'center', marginTop: '50px' }}><IonSpinner name="crescent" /></div>;
 
@@ -92,11 +119,24 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
         </IonToolbar>
       </IonHeader>
       <IonContent>
-        <div style={{ padding: '20px', minHeight: '100vh' }}>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 5px 0' }}>
-            {adminBranch} Branch
-          </h1>
-          <p style={{ color: 'gray', marginTop: '0', marginBottom: '20px' }}>Welcome back, {adminName?.split(' ')[0]}</p>
+        <div style={{ padding: '20px', backgroundColor: 'var(--ion-background-color)', minHeight: '100vh' }}>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 5px 0', color: 'var(--ion-text-color)' }}>{adminBranch} Branch</h1>
+              <p style={{ color: 'gray', margin: '0' }}>Welcome back, {adminName?.split(' ')[0]}</p>
+            </div>
+            
+            {/* WEATHER WIDGET */}
+            {!weatherLoading && weather && (
+              <IonCard style={{ margin: '0', borderRadius: '12px', padding: '5px 10px', textAlign: 'center', backgroundColor: 'var(--ion-card-background)' }}>
+                <IonIcon icon={getWeatherIcon(weather.code)} style={{ fontSize: '2rem', color: '#FFD600' }} />
+                <h2 style={{ margin: '5px 0', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--ion-text-color)' }}>{weather.temp}°C</h2>
+                <p style={{ margin: '0', fontSize: '0.7em', color: 'gray' }}>{getWeatherText(weather.code)}</p>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.7em', color: '#1976d2' }}><IonIcon icon={waterOutline} /> {weather.rainChance}% rain</p>
+              </IonCard>
+            )}
+          </div>
 
           {/* STATS CARDS */}
           <IonGrid className="ion-no-padding">
@@ -117,27 +157,11 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
                   </IonCardContent>
                 </IonCard>
               </IonCol>
-              <IonCol size="6" style={{ padding: '5px' }}>
-                <IonCard style={{ margin: '0', borderRadius: '12px' }}>
-                  <IonCardContent style={{ padding: '15px' }}>
-                    <h1 style={{ fontSize: '1.8rem', fontWeight: '800', margin: '0' }}>{stats.announcements}</h1>
-                    <p style={{ fontSize: '0.9rem', color: 'gray', margin: '5px 0 0 0' }}>Announcements</p>
-                  </IonCardContent>
-                </IonCard>
-              </IonCol>
-              <IonCol size="6" style={{ padding: '5px' }}>
-                <IonCard style={{ margin: '0', borderRadius: '12px' }}>
-                  <IonCardContent style={{ padding: '15px' }}>
-                    <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: '#388e3c', margin: '0' }}>{stats.resolved}</h1>
-                    <p style={{ fontSize: '0.9rem', color: 'gray', margin: '5px 0 0 0' }}>Resolved</p>
-                  </IonCardContent>
-                </IonCard>
-              </IonCol>
             </IonRow>
           </IonGrid>
 
           {/* MAP */}
-          <div style={{ height: '250px', width: '100%', borderRadius: '16px', overflow: 'hidden', marginTop: '20px', border: '1px solid #e0e0e0' }}>
+          <div style={{ height: '250px', width: '100%', borderRadius: '16px', overflow: 'hidden', marginTop: '20px', border: '1px solid var(--ion-color-step-150)' }}>
             <MapContainer 
               center={getCenter(adminBranch)} zoom={11} style={{ height: '100%', width: '100%' }}
               minZoom={10} maxZoom={18}
@@ -152,29 +176,6 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
             </MapContainer>
           </div>
 
-          {/* TOGGLE LISTAHAN NG VERIFIED REPORTS */}
-          <IonButton expand="block" fill="outline" color="dark" onClick={() => setShowList(!showList)} style={{ marginTop: '15px' }}>
-            <IonIcon slot="start" icon={showList ? mapOutline : listOutline} /> 
-            {showList ? 'Show Map' : `Show Pinned Reports (${verifiedReports.length})`}
-          </IonButton>
-
-          {showList && (
-            <IonList style={{ marginTop: '10px' }}>
-              {verifiedReports.length === 0 ? <p style={{ padding: '10px', color: 'gray' }}>Walang pinned reports.</p> : (
-                verifiedReports.map((report) => (
-                  <IonItem key={report.id}>
-                    <IonLabel>
-                      <h2 style={{ fontWeight: 'bold' }}>{report.barangay}</h2>
-                      <p>{report.description}</p>
-                    </IonLabel>
-                    <IonBadge color="warning" slot="end">PINNED</IonBadge>
-                  </IonItem>
-                ))
-              )}
-            </IonList>
-          )}
-
-          {/* ADD ANNOUNCEMENT BUTTON */}
           <IonButton expand="block" onClick={() => navigate('/admin/announcements')} style={{ '--background': '#FFD600', '--color': '#000', '--border-radius': '12px', height: '55px', fontWeight: 'bold', marginTop: '30px' }}>
             <IonIcon slot="start" icon={addCircleOutline} /> Add announcement
           </IonButton>

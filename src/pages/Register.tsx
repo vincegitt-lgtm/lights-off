@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonItem, IonLabel, IonInput, IonButton, IonSelect, IonSelectOption, IonText, IonIcon, IonCheckbox, IonButtons, IonBackButton } from '@ionic/react';
+import { IonContent, IonPage, IonItem, IonLabel, IonInput, IonButton, IonSelect, IonSelectOption, IonText, IonIcon, IonCheckbox } from '@ionic/react';
 import { createUserWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
@@ -28,7 +28,7 @@ const Register: React.FC = () => {
 
     try {
       const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' }); // LAGING MAGPAPAKITA NG ACCOUNT PICKER
+      provider.setCustomParameters({ prompt: 'select_account' });
       
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
@@ -98,18 +98,10 @@ const Register: React.FC = () => {
 
   return (
     <IonPage>
-      <IonHeader className="ion-no-border">
-        <IonToolbar color="primary">
-          <IonButtons slot="start">
-            <IonBackButton defaultHref="/login" />
-          </IonButtons>
-          <IonTitle style={{ fontWeight: 'bold' }}>Create Account</IonTitle>
-        </IonToolbar>
-      </IonHeader>
       <IonContent className="ion-padding">
         <div style={{ textAlign: 'center', marginTop: '20px', marginBottom: '20px' }}>
-          <img src={logo} alt="LightsOff Logo" style={{ width: '100px', height: '100px', objectFit: 'contain', marginBottom: '10px' }} />
-          <h1 style={{ fontWeight: '900', fontSize: '1.8rem', color: 'var(--ion-text-color)', margin: '0' }}>Create Account</h1>
+          <img src={logo} alt="LightsOff Logo" style={{ width: '120px', height: '120px', objectFit: 'contain', marginBottom: '10px' }} />
+          <h1 style={{ fontWeight: '900', fontSize: '2rem', color: 'var(--ion-text-color)', margin: '0' }}>Create Account</h1>
         </div>
 
         <div style={{ backgroundColor: 'var(--ion-card-background)', padding: '20px', borderRadius: '20px', boxShadow: '0 4px 16px rgba(0,0,0,0.05)' }}>

@@ -39,10 +39,11 @@ const AdminSettings: React.FC = () => {
         </IonToolbar>
       </IonHeader>
       <IonContent>
-        <div style={{ padding: '20px', backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#111', margin: '0 0 20px 0' }}>Settings</h1>
+        {/* GINAMIT ANG var(--ion-background-color) IMBES NA HARDCODED NA PUTI */}
+        <div style={{ padding: '20px', backgroundColor: 'var(--ion-background-color)', minHeight: '100vh' }}>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--ion-text-color)', margin: '0 0 20px 0' }}>Settings</h1>
 
-          <IonCard style={{ margin: '0 0 15px 0', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          <IonCard style={{ margin: '0 0 15px 0', borderRadius: '12px' }}>
             <IonCardContent>
               <IonItem lines="none">
                 <IonLabel>
@@ -54,7 +55,7 @@ const AdminSettings: React.FC = () => {
             </IonCardContent>
           </IonCard>
 
-          <IonCard style={{ margin: '0 0 15px 0', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          <IonCard style={{ margin: '0 0 15px 0', borderRadius: '12px' }}>
             <IonCardContent>
               <IonLabel style={{ fontWeight: 'bold', marginBottom: '10px', display: 'block' }}>Appearance</IonLabel>
               

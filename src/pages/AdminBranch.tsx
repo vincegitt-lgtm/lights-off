@@ -62,37 +62,38 @@ const AdminBranch: React.FC = () => {
         </IonToolbar>
       </IonHeader>
       <IonContent>
-        <div style={{ padding: '20px', backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#111', margin: '0 0 20px 0' }}>Branch information</h1>
+        {/* GINAMIT ANG var(--ion-background-color) */}
+        <div style={{ padding: '20px', backgroundColor: 'var(--ion-background-color)', minHeight: '100vh' }}>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--ion-text-color)', margin: '0 0 20px 0' }}>Branch information</h1>
 
-          <IonCard style={{ margin: '0 0 15px 0', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          <IonCard style={{ margin: '0 0 15px 0', borderRadius: '12px' }}>
             <IonCardContent>
               <IonItem lines="none" style={{ marginBottom: '10px' }}>
                 <IonLabel position="stacked">Branch name</IonLabel>
-                <IonInput value={branchName} readonly style={{ backgroundColor: '#f0f0f0', borderRadius: '8px', padding: '0 10px' }} />
+                <IonInput value={branchName} readonly />
               </IonItem>
 
               <IonItem lines="none" style={{ marginBottom: '10px' }}>
                 <IonLabel position="stacked">Officer in charge</IonLabel>
-                <IonInput value={officer} onIonChange={e => setOfficer(e.detail.value!)} style={{ backgroundColor: '#f0f0f0', borderRadius: '8px', padding: '0 10px' }} />
+                <IonInput value={officer} onIonChange={e => setOfficer(e.detail.value!)} />
               </IonItem>
 
               <IonItem lines="none" style={{ marginBottom: '10px' }}>
                 <IonLabel position="stacked">Hotline</IonLabel>
-                <IonInput value={hotline} onIonChange={e => setHotline(e.detail.value!)} style={{ backgroundColor: '#f0f0f0', borderRadius: '8px', padding: '0 10px' }} />
+                <IonInput value={hotline} onIonChange={e => setHotline(e.detail.value!)} />
               </IonItem>
 
               <IonItem lines="none" style={{ marginBottom: '10px' }}>
                 <IonLabel position="stacked">Email</IonLabel>
-                <IonInput value={email} readonly style={{ backgroundColor: '#f0f0f0', borderRadius: '8px', padding: '0 10px' }} />
+                <IonInput value={email} readonly />
               </IonItem>
 
               <IonItem lines="none" style={{ marginBottom: '20px' }}>
                 <IonLabel position="stacked">Address</IonLabel>
-                <IonInput value={address} onIonChange={e => setAddress(e.detail.value!)} style={{ backgroundColor: '#f0f0f0', borderRadius: '8px', padding: '0 10px' }} />
+                <IonInput value={address} onIonChange={e => setAddress(e.detail.value!)} />
               </IonItem>
 
-              <IonButton expand="block" onClick={handleSave} style={{ '--background': '#FFC107', '--color': '#000', '--border-radius': '8px', height: '50px', fontWeight: 'bold' }}>
+              <IonButton expand="block" onClick={handleSave} style={{ '--background': '#FFD600', '--color': '#000', '--border-radius': '8px', height: '50px', fontWeight: 'bold' }}>
                 Save changes
               </IonButton>
             </IonCardContent>
