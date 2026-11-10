@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonItem, IonLabel, IonInput, IonButton, IonSelect, IonSelectOption, IonTextarea, IonText, IonCard, IonCardContent, IonIcon, IonSpinner } from '@ionic/react';
+import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonItem, IonLabel, IonInput, IonButton, IonSelect, IonSelectOption, IonTextarea, IonText, IonCard, IonCardContent, IonIcon } from '@ionic/react';
 import { collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
@@ -19,9 +19,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// Component para sa pin location at click event
 function LocationMarker({ position, setPosition, setBarangay }: { position: any, setPosition: any, setBarangay: any }) {
-  const map = useMapEvents({
+  useMapEvents({
     click(e) {
       setPosition(e.latlng);
       fetchBarangay(e.latlng.lat, e.latlng.lng, setBarangay);
@@ -33,7 +32,6 @@ function LocationMarker({ position, setPosition, setBarangay }: { position: any,
   );
 }
 
-// Function para makuha ang Barangay name base sa coordinates
 const fetchBarangay = async (lat: number, lng: number, setBarangay: any) => {
   try {
     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
@@ -42,7 +40,7 @@ const fetchBarangay = async (lat: number, lng: number, setBarangay: any) => {
     if (data && data.address) {
       const brgy = data.address.village || data.address.suburb || data.address.neighbourhood || data.address.hamlet || '';
       if (brgy) {
-        setBarangay(brgy); // Awtomatikong ise-set ang Barangay dropdown
+        setBarangay(brgy);
       }
     }
   } catch (error) {
@@ -59,15 +57,13 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
   const [description, setDescription] = useState('');
   const [type, setType] = useState('scheduled');
   const [affectedAreas, setAffectedAreas] = useState('');
-  const [scheduledDate, setScheduledDate] = useState<string>(new Date().toISOString());
-  const [startTime, setStartTime] = useState<string>(new Date().toISOString());
-  const [endTime, setEndTime] = useState<string>(new Date().toISOString());
+  const [startTime, setStartTime] = useState<string>(new Date().toISOString().slice(0, 16));
+  const [endTime, setEndTime] = useState<string>(new Date().toISOString().slice(0, 16));
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Map State
   const [mapCenter, setMapCenter] = useState<[number, number]>([13.4000, 121.1833]);
   const [pinPosition, setPinPosition] = useState<any>(null);
 
@@ -81,7 +77,6 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
   };
 
   useEffect(() => {
-    // Initialize map center base sa admin branch
     const { lat, lon } = getCoordinates(adminBranch);
     setMapCenter([lat, lon]);
     setPinPosition({ lat, lng: lon });
@@ -113,16 +108,18 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
       const finalLat = pinPosition ? pinPosition.lat : mapCenter[0];
       const finalLng = pinPosition ? pinPosition.lng : mapCenter[1];
 
+      const startDate = new Date(startTime).toISOString();
+      const endDate = new Date(endTime).toISOString();
+
       await addDoc(collection(db, 'announcements'), {
         title,
         description,
         type,
         branch: adminBranch,
-        affectedAreas: affectedAreas.split(',').map(area => area.trim()),
+        affectedAreas: affectedAreas.split(',').map((area: string) => area.trim()),
         status: 'ongoing',
-        scheduledDate: scheduledDate,
-        startTime: startTime,
-        endTime: endTime,
+        startTime: startDate,
+        endTime: endDate,
         latitude: finalLat,
         longitude: finalLng,
         createdBy: auth.currentUser?.uid,
@@ -165,8 +162,8 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
             minZoom={10}
             maxZoom={18}
             maxBounds={[
-              [12.5, 120.5], // Southwest Oriental Mindoro
-              [13.8, 121.8]  // Northeast Oriental Mindoro
+              [12.5, 120.5],
+              [13.8, 121.8]
             ]}
             maxBoundsViscosity={1.0}
           >
@@ -193,7 +190,7 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
                 value={affectedAreas} 
                 onIonChange={e => setAffectedAreas(e.detail.value!)} 
                 placeholder="Pumili sa mapa o i-type"
-                style={{ '--background': '#f0f0f0', '--padding-start': '10px', borderRadius: '8px' }}
+                style={{ backgroundColor: '#f0f0f0', borderRadius: '8px', padding: '0 10px' }}
               />
             </IonItem>
 
@@ -202,7 +199,7 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
               <IonSelect 
                 value={type} 
                 onIonChange={e => setType(e.detail.value)}
-                style={{ '--background': '#f0f0f0', '--padding-start': '10px', borderRadius: '8px', width: '100%' }}
+                style={{ backgroundColor: '#f0f0f0', borderRadius: '8px', padding: '0 10px', width: '100%' }}
               >
                 <IonSelectOption value="scheduled">Scheduled</IonSelectOption>
                 <IonSelectOption value="unexpected">Unexpected</IonSelectOption>
@@ -215,7 +212,7 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
                 value={title} 
                 onIonChange={e => setTitle(e.detail.value!)} 
                 placeholder="e.g. Line maintenance"
-                style={{ '--background': '#f0f0f0', '--padding-start': '10px', borderRadius: '8px' }}
+                style={{ backgroundColor: '#f0f0f0', borderRadius: '8px', padding: '0 10px' }}
               />
             </IonItem>
 
@@ -225,7 +222,7 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
                 value={description} 
                 onIonChange={e => setDescription(e.detail.value!)} 
                 rows={2}
-                style={{ '--background': '#f0f0f0', '--padding-start': '10px', borderRadius: '8px' }}
+                style={{ backgroundColor: '#f0f0f0', borderRadius: '8px', padding: '0 10px' }}
               />
             </IonItem>
 
@@ -233,9 +230,9 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
               <IonLabel position="stacked" style={{ fontWeight: 'bold', color: '#000' }}>Start</IonLabel>
               <IonInput 
                 type="datetime-local" 
-                value={startTime.substring(0, 16)} 
+                value={startTime} 
                 onIonChange={e => setStartTime(e.detail.value!)} 
-                style={{ '--background': '#f0f0f0', '--padding-start': '10px', borderRadius: '8px' }}
+                style={{ backgroundColor: '#f0f0f0', borderRadius: '8px', padding: '0 10px' }}
               />
             </IonItem>
 
@@ -243,9 +240,9 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
               <IonLabel position="stacked" style={{ fontWeight: 'bold', color: '#000' }}>Expected restoration</IonLabel>
               <IonInput 
                 type="datetime-local" 
-                value={endTime.substring(0, 16)} 
+                value={endTime} 
                 onIonChange={e => setEndTime(e.detail.value!)} 
-                style={{ '--background': '#f0f0f0', '--padding-start': '10px', borderRadius: '8px' }}
+                style={{ backgroundColor: '#f0f0f0', borderRadius: '8px', padding: '0 10px' }}
               />
             </IonItem>
 
@@ -270,8 +267,8 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
                 <IonText color="medium"><p>{ann.description}</p></IonText>
                 <p style={{ fontSize: '0.85em', color: 'gray' }}>
                   <strong>Barangay:</strong> {ann.affectedAreas?.join(', ')}<br/>
-                  <strong>Start:</strong> {new Date(ann.startTime).toLocaleString()}<br/>
-                  <strong>End:</strong> {new Date(ann.endTime).toLocaleString()}
+                  <strong>Start:</strong> {ann.startTime ? new Date(ann.startTime).toLocaleString() : 'N/A'}<br/>
+                  <strong>End:</strong> {ann.endTime ? new Date(ann.endTime).toLocaleString() : 'N/A'}
                 </p>
                 <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                   <IonButton size="small" color="success" onClick={() => updateStatus(ann.id, 'restored')}>Mark as Restored</IonButton>
