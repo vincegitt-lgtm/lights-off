@@ -1,32 +1,67 @@
 import { useState, useEffect } from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonBadge, IonText, IonSpinner, IonButton, IonIcon, IonCardSubtitle } from '@ionic/react';
+import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardContent, IonBadge, IonIcon, IonSpinner, IonButton, IonGrid, IonRow, IonCol } from '@ionic/react';
 import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { partlySunnyOutline, sunnyOutline, rainyOutline, cloudOutline, waterOutline, logOutOutline, listOutline, megaphoneOutline, alertCircleOutline } from 'ionicons/icons';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 import { useNavigate } from 'react-router-dom';
-import { partlySunnyOutline, warningOutline, calendarOutline, timeOutline, downloadOutline } from 'ionicons/icons';
+
+// LEAFLET ICONS
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({ iconRetinaUrl: markerIcon2x, iconUrl: markerIcon, shadowUrl: markerShadow });
+
+const redIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41], iconAnchor: [12, 41],
+});
+
+const yellowIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-gold.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41], iconAnchor: [12, 41],
+});
 
 const Home: React.FC = () => {
-  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [userBranch, setUserBranch] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [weatherData, setWeatherData] = useState<{ condition: string, temp: number, isRaining: boolean } | null>(null);
-  const [weatherLoading, setWeatherLoading] = useState(true);
   
+  // Announcements State
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [annLoading, setAnnLoading] = useState(true);
+
+  // Reports State
+  const [verifiedReports, setVerifiedReports] = useState<any[]>([]);
+
+  // Weather State
+  const [weather, setWeather] = useState<any>(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
+
+  // Toggle Lists
+  const [showAnnouncements, setShowAnnouncements] = useState(false);
+  const [showReports, setShowReports] = useState(false);
+
   const navigate = useNavigate();
 
-  const getCoordinates = (branch: string) => {
+  const getCenter = (branch: string): [number, number] => {
     switch(branch) {
-      case 'Naujan': return { lat: 13.3244, lon: 121.3066 };
-      case 'Socorro': return { lat: 13.0431, lon: 121.4128 };
-      case 'Calapan City': return { lat: 13.4115, lon: 121.1803 };
-      default: return { lat: 13.4000, lon: 121.1833 };
+      case 'Naujan': return [13.3244, 121.3066];
+      case 'Socorro': return [13.0431, 121.4128];
+      case 'Calapan City': return [13.4115, 121.1803];
+      default: return [13.4000, 121.1833];
     }
   };
 
   useEffect(() => {
-    let unsubscribe: any;
-    
-    const fetchUserDataAndWeather = async () => {
+    let unsubAnn: any;
+    let unsubVerified: any;
+
+    const fetchUserData = async () => {
       const user = auth.currentUser;
       if (user) {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -34,153 +69,195 @@ const Home: React.FC = () => {
           const branch = userDoc.data().branch;
           setUserBranch(branch);
 
-          const { lat, lon } = getCoordinates(branch);
+          // WEATHER
+          const [lat, lon] = getCenter(branch);
           try {
-            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=Asia%2FManila`);
+            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&daily=precipitation_probability_max&timezone=Asia%2FManila`);
             const data = await res.json();
-            const temp = data.current.temperature_2m;
-            const code = data.current.weather_code;
-            let condition = "Clear";
-            if (code > 0 && code < 50) condition = "Cloudy";
-            if (code >= 51 && code <= 67) condition = "Raining";
-            if (code >= 80 && code <= 82) condition = "Heavy Rain";
-            if (code >= 95) condition = "Thunderstorm";
-            const isRaining = (code >= 51 && code <= 67) || (code >= 80 && code <= 82) || (code >= 95);
-            setWeatherData({ condition, temp, isRaining });
-          } catch (error) {
-            console.error("Weather API error:", error);
-          }
-          setWeatherLoading(false);
+            setWeather({
+              temp: data.current.temperature_2m,
+              code: data.current.weather_code,
+              rainChance: data.daily.precipitation_probability_max[0]
+            });
+          } catch (error) { console.error(error); } finally { setWeatherLoading(false); }
 
-          const q = query(
-            collection(db, 'announcements'),
-            where('branch', '==', branch)
-          );
-
-          unsubscribe = onSnapshot(q, (snapshot) => {
+          // ANNOUNCEMENTS
+          const qAnn = query(collection(db, 'announcements'), where('branch', '==', branch), where('status', '==', 'ongoing'));
+          unsubAnn = onSnapshot(qAnn, (snap) => {
             const data: any[] = [];
-            snapshot.forEach((doc) => data.push({ id: doc.id, ...doc.data() }));
-            const filtered = data.filter(d => d.status === 'ongoing');
-            filtered.sort((a, b) => b.timestamp?.toMillis() - a.timestamp?.toMillis());
-            setAnnouncements(filtered);
-            setLoading(false);
+            snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+            data.sort((a, b) => b.timestamp?.toMillis() - a.timestamp?.toMillis());
+            setAnnouncements(data);
+            setAnnLoading(false);
+          });
+
+          // VERIFIED REPORTS
+          const qReports = query(collection(db, 'reports'), where('branch', '==', branch), where('status', '==', 'approved'));
+          unsubVerified = onSnapshot(qReports, (snap) => {
+            const data: any[] = [];
+            snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+            setVerifiedReports(data);
           });
         }
       }
+      setLoading(false);
     };
 
-    fetchUserDataAndWeather();
-    return () => { if (unsubscribe) unsubscribe(); };
+    fetchUserData();
+    return () => { if (unsubAnn) unsubAnn(); if (unsubVerified) unsubVerified(); };
   }, []);
 
-  const handleSetReminder = (ann: any) => {
-    try {
-      // Gumamit ng startTime at endTime para sa duration
-      const eventStartDate = new Date(`${ann.scheduledDate.split('T')[0]}T${ann.startTime.split('T')[1]}`);
-      const eventEndDate = new Date(`${ann.scheduledDate.split('T')[0]}T${ann.endTime.split('T')[1]}`);
-
-      const formatDate = (date: Date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-      
-      const icsContent = `BEGIN:VCALENDAR
-VERSION:2.0
-BEGIN:VEVENT
-DTSTART:${formatDate(eventStartDate)}
-DTEND:${formatDate(eventEndDate)}
-SUMMARY:Brownout: ${ann.title}
-DESCRIPTION:${ann.description}
-LOCATION:${ann.affectedAreas.join(', ')}
-END:VEVENT
-END:VCALENDAR`;
-
-      const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `brownout-reminder.ics`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      alert('Na-download ang reminder file. Buksan ito para maidagdag sa Calendar.');
-    } catch (error) {
-      console.error('Error:', error);
-    }
+  const handleLogout = async () => {
+    await auth.signOut();
+    navigate('/login');
   };
+
+  const getWeatherIcon = (code: number) => {
+    if (code === 0) return sunnyOutline;
+    if (code >= 1 && code <= 3) return partlySunnyOutline;
+    if (code >= 51 && code <= 67) return rainyOutline;
+    if (code >= 80 && code <= 82) return rainyOutline;
+    return cloudOutline;
+  };
+
+  const getWeatherText = (code: number) => {
+    if (code === 0) return "Sunny";
+    if (code >= 1 && code <= 3) return "Partly Cloudy";
+    if (code >= 51 && code <= 67) return "Rainy";
+    if (code >= 80 && code <= 82) return "Heavy Rain";
+    return "Cloudy";
+  };
+
+  if (loading) return <div style={{ textAlign: 'center', marginTop: '50px' }}><IonSpinner name="crescent" /></div>;
 
   return (
     <IonPage>
       <IonHeader className="ion-no-border">
         <IonToolbar color="primary">
-          <IonTitle style={{ fontWeight: 'bold' }}>LightsOff ({userBranch || 'Loading...'})</IonTitle>
+          <IonTitle style={{ fontWeight: 'bold' }}>LightsOff ({userBranch})</IonTitle>
+          <IonButton slot="end" fill="clear" color="light" onClick={handleLogout}>
+            <IonIcon icon={logOutOutline} />
+          </IonButton>
         </IonToolbar>
       </IonHeader>
-      <IonContent className="ion-padding">
-        
-        {!weatherLoading && weatherData && (
-          <IonCard color={weatherData.isRaining ? "warning" : "tertiary"} style={{ margin: '0 0 15px 0' }}>
-            <IonCardHeader>
-              <IonCardSubtitle style={{ color: weatherData.isRaining ? '#000' : '#fff' }}>
-                <IonIcon icon={partlySunnyOutline} /> Current Weather in {userBranch}
-              </IonCardSubtitle>
-              <IonCardTitle style={{ color: weatherData.isRaining ? '#000' : '#fff', fontSize: '1.3em' }}>
-                {weatherData.condition} | {weatherData.temp}°C
-              </IonCardTitle>
-            </IonCardHeader>
-            {weatherData.isRaining && (
-              <IonCardContent style={{ color: '#000', paddingTop: '0' }}>
-                <IonIcon icon={warningOutline} /> <strong>Alert:</strong> Umuulan ng malakas sa inyong lugar. Mag-ingat sa posibleng brownout.
-              </IonCardContent>
+      <IonContent>
+        <div style={{ padding: '20px', backgroundColor: 'var(--ion-background-color)', minHeight: '100vh' }}>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 5px 0', color: 'var(--ion-text-color)' }}>Hello, Resident!</h1>
+              <p style={{ color: 'gray', margin: '0' }}>Stay updated with power outages.</p>
+            </div>
+            
+            {/* WEATHER WIDGET */}
+            {!weatherLoading && weather && (
+              <IonCard style={{ margin: '0', borderRadius: '12px', padding: '5px 10px', textAlign: 'center', backgroundColor: 'var(--ion-card-background)' }}>
+                <IonIcon icon={getWeatherIcon(weather.code)} style={{ fontSize: '2rem', color: '#FFD600' }} />
+                <h2 style={{ margin: '5px 0', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--ion-text-color)' }}>{weather.temp}°C</h2>
+                <p style={{ margin: '0', fontSize: '0.7em', color: 'gray' }}>{getWeatherText(weather.code)}</p>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.7em', color: '#1976d2' }}><IonIcon icon={waterOutline} /> {weather.rainChance}%</p>
+              </IonCard>
             )}
-          </IonCard>
-        )}
+          </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-          <h2 style={{ margin: 0, fontWeight: 'bold' }}>Official Announcements</h2>
-          <IonButton size="small" fill="outline" onClick={() => navigate('/outage-history')}>
-            History
+          {/* MAP */}
+          <div style={{ height: '250px', width: '100%', borderRadius: '16px', overflow: 'hidden', marginBottom: '20px', border: '1px solid #e0e0e0' }}>
+            <MapContainer 
+              center={getCenter(userBranch || 'Naujan')} zoom={11} style={{ height: '100%', width: '100%' }}
+              minZoom={10} maxZoom={18}
+              maxBounds={[[12.5, 120.5], [13.8, 121.8]]} maxBoundsViscosity={1.0}
+            >
+              <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              
+              {/* DILAW: Announcements */}
+              {announcements.filter(a => a.latitude && a.longitude).map(a => (
+                <Marker key={a.id} position={[a.latitude, a.longitude]} icon={yellowIcon}>
+                  <Popup><strong>{a.title}</strong><br/>{a.affectedAreas?.join(', ')}</Popup>
+                </Marker>
+              ))}
+
+              {/* PULA: Verified Reports */}
+              {verifiedReports.filter(r => r.latitude && r.longitude).map(r => (
+                <Marker key={r.id} position={[r.latitude, r.longitude]} icon={redIcon}>
+                  <Popup><strong>{r.barangay}</strong><br/>{r.description}</Popup>
+                </Marker>
+              ))}
+            </MapContainer>
+          </div>
+
+          {/* TOGGLE BUTTONS */}
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+            <IonButton expand="block" fill="outline" color="dark" onClick={() => setShowAnnouncements(!showAnnouncements)} style={{ flex: 1 }}>
+              <IonIcon slot="start" icon={megaphoneOutline} /> 
+              {showAnnouncements ? 'Hide' : `Announcements (${announcements.length})`}
+            </IonButton>
+            <IonButton expand="block" fill="outline" color="dark" onClick={() => setShowReports(!showReports)} style={{ flex: 1 }}>
+              <IonIcon slot="start" icon={listOutline} /> 
+              {showReports ? 'Hide' : `Reports (${verifiedReports.length})`}
+            </IonButton>
+          </div>
+
+          {/* ANNOUNCEMENTS LIST */}
+          {showAnnouncements && (
+            <div>
+              {annLoading ? (
+                <div style={{ textAlign: 'center' }}><IonSpinner name="crescent" /></div>
+              ) : announcements.length === 0 ? (
+                <p style={{ color: 'gray' }}>Walang aktibong announcements.</p>
+              ) : (
+                announcements.map((ann) => (
+                  <IonCard key={ann.id} style={{ margin: '0 0 10px 0', borderRadius: '12px' }}>
+                    <IonCardContent>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                        <div>
+                          <h3 style={{ margin: '0 0 5px 0', fontWeight: 'bold', fontSize: '1rem' }}>{ann.title}</h3>
+                          <p style={{ margin: '0', fontSize: '0.9em', color: 'gray' }}>{ann.description}</p>
+                        </div>
+                        <IonBadge color={ann.type === 'unexpected' ? 'danger' : 'warning'}>
+                          {ann.type === 'unexpected' ? 'Emergency' : 'Scheduled'}
+                        </IonBadge>
+                      </div>
+                      <p style={{ margin: '5px 0 0 0', fontSize: '0.8em', color: 'gray' }}>
+                        <strong>Apektado:</strong> {ann.affectedAreas?.join(', ')}
+                      </p>
+                      <p style={{ margin: '5px 0 0 0', fontSize: '0.8em', color: 'gray' }}>
+                        {new Date(ann.startTime).toLocaleString()} - {new Date(ann.endTime).toLocaleTimeString()}
+                      </p>
+                    </IonCardContent>
+                  </IonCard>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* VERIFIED REPORTS LIST */}
+          {showReports && (
+            <div>
+              {verifiedReports.length === 0 ? (
+                <p style={{ color: 'gray' }}>Walang verified reports.</p>
+              ) : (
+                verifiedReports.map((report) => (
+                  <IonCard key={report.id} style={{ margin: '0 0 10px 0', borderRadius: '12px' }}>
+                    <IonCardContent>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <h3 style={{ margin: 0, fontWeight: 'bold', fontSize: '1rem' }}>{report.barangay}</h3>
+                        <IonBadge color="success">VERIFIED</IonBadge>
+                      </div>
+                      <p style={{ margin: '0 0 5px 0', fontSize: '0.9em' }}>{report.description}</p>
+                      <p style={{ margin: '0', fontSize: '0.8em', color: 'gray' }}>
+                        <IonIcon icon={alertCircleOutline} /> {new Date(report.timestamp?.toMillis()).toLocaleString()}
+                      </p>
+                    </IonCardContent>
+                  </IonCard>
+                ))
+              )}
+            </div>
+          )}
+
+          <IonButton expand="block" onClick={() => navigate('/my-reports')} style={{ '--background': '#FFD600', '--color': '#000', '--border-radius': '12px', height: '55px', fontWeight: 'bold', marginTop: '30px' }}>
+            <IonIcon slot="start" icon={alertCircleOutline} /> Report an Outage
           </IonButton>
         </div>
-        
-        {loading ? (
-          <div style={{ textAlign: 'center', marginTop: '20px' }}>
-            <IonSpinner name="crescent" />
-          </div>
-        ) : announcements.length === 0 ? (
-          <IonText color="medium"><p>Walang aktibong announcements ngayon para sa branch na ito.</p></IonText>
-        ) : (
-          announcements.map((ann) => (
-            <IonCard key={ann.id}>
-              <IonCardHeader>
-                <IonCardTitle>{ann.title}</IonCardTitle>
-                <IonBadge color="danger">ONGOING</IonBadge>
-              </IonCardHeader>
-              <IonCardContent>
-                <p>{ann.description}</p>
-                
-                {ann.scheduledDate && (
-                  <p style={{ fontSize: '0.85em', color: 'gray', margin: '5px 0' }}>
-                    <IonIcon icon={calendarOutline} /> <strong>Petsa:</strong> {new Date(ann.scheduledDate).toLocaleDateString()}
-                  </p>
-                )}
-                {/* IPAKITA ANG DURATION */}
-                {ann.startTime && ann.endTime && (
-                  <p style={{ fontSize: '0.85em', color: 'gray', margin: '5px 0' }}>
-                    <IonIcon icon={timeOutline} /> <strong>Oras:</strong> {new Date(ann.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(ann.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                )}
-                
-                <p style={{ fontSize: '0.8em', color: 'gray', marginTop: '5px' }}>
-                  <strong>Apektado:</strong> {ann.affectedAreas?.join(', ')}
-                </p>
-
-                {ann.scheduledDate && ann.startTime && ann.endTime && (
-                  <IonButton expand="block" fill="outline" color="warning" className="ion-margin-top" onClick={() => handleSetReminder(ann)}>
-                    <IonIcon slot="start" icon={downloadOutline} /> Set Reminder
-                  </IonButton>
-                )}
-              </IonCardContent>
-            </IonCard>
-          ))
-        )}
       </IonContent>
     </IonPage>
   );

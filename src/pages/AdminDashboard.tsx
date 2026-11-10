@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardContent, IonGrid, IonRow, IonCol, IonButton, IonIcon, IonSpinner, IonBadge } from '@ionic/react';
 import { collection, query, where, onSnapshot, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { addCircleOutline, sunnyOutline, rainyOutline, cloudOutline, partlySunnyOutline, waterOutline, checkmarkCircleOutline } from 'ionicons/icons';
+import { addCircleOutline, sunnyOutline, rainyOutline, cloudOutline, partlySunnyOutline, waterOutline, checkmarkCircleOutline, listOutline, megaphoneOutline } from 'ionicons/icons';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -21,6 +21,12 @@ const redIcon = new L.Icon({
   iconSize: [25, 41], iconAnchor: [12, 41],
 });
 
+const yellowIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-gold.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41], iconAnchor: [12, 41],
+});
+
 interface Props { adminBranch: string; }
 
 const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
@@ -29,6 +35,11 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
   const [loading, setLoading] = useState(true);
   const [pendingReports, setPendingReports] = useState<any[]>([]);
   const [verifiedReports, setVerifiedReports] = useState<any[]>([]);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  
+  // Toggle Lists
+  const [showAnnouncements, setShowAnnouncements] = useState(false);
+  const [showReports, setShowReports] = useState(false);
   
   // WEATHER STATE
   const [weather, setWeather] = useState<any>(null);
@@ -80,11 +91,13 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
       setStats(prev => ({ ...prev, pending: data.length }));
     });
 
-    // FETCH ANNOUNCEMENTS (Para sa stats)
+    // FETCH ANNOUNCEMENTS
     const qAnn = query(collection(db, 'announcements'), where('branch', '==', adminBranch));
     const unsubAnn = onSnapshot(qAnn, (snap) => {
       const data: any[] = [];
       snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+      data.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+      setAnnouncements(data);
       setStats(prev => ({ 
         ...prev, 
         announcements: data.length, 
@@ -106,6 +119,17 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
 
   const handleResolve = async (id: string) => {
     try { await updateDoc(doc(db, 'reports', id), { status: 'resolved' }); } catch (e) { console.error(e); }
+  };
+
+  const handleVerifyAndPin = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'reports', id), { status: 'approved' });
+      navigate('/admin/dashboard');
+    } catch (e) { console.error(e); }
+  };
+
+  const handleReject = async (id: string) => {
+    try { await updateDoc(doc(db, 'reports', id), { status: 'rejected' }); } catch (e) { console.error(e); }
   };
 
   const getWeatherIcon = (code: number) => {
@@ -199,33 +223,75 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
               maxBounds={[[12.5, 120.5], [13.8, 121.8]]} maxBoundsViscosity={1.0}
             >
               <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              
+              {/* PULANG PIN: Verified Reports */}
               {verifiedReports.filter(a => a.latitude && a.longitude).map(a => (
                 <Marker key={a.id} position={[a.latitude, a.longitude]} icon={redIcon}>
                   <Popup><strong>{a.barangay}</strong><br/>{a.description}</Popup>
                 </Marker>
               ))}
+
+              {/* DILAW NA PIN: Announcements */}
+              {announcements.filter(a => a.latitude && a.longitude).map(a => (
+                <Marker key={a.id} position={[a.latitude, a.longitude]} icon={yellowIcon}>
+                  <Popup><strong>{a.title}</strong><br/>{a.affectedAreas?.join(', ')}</Popup>
+                </Marker>
+              ))}
             </MapContainer>
           </div>
 
+          {/* TOGGLE BUTTONS */}
+          <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+            <IonButton expand="block" fill="outline" color="dark" onClick={() => setShowAnnouncements(!showAnnouncements)} style={{ flex: 1 }}>
+              <IonIcon slot="start" icon={megaphoneOutline} /> 
+              {showAnnouncements ? 'Hide' : `Announcements (${announcements.length})`}
+            </IonButton>
+            <IonButton expand="block" fill="outline" color="dark" onClick={() => setShowReports(!showReports)} style={{ flex: 1 }}>
+              <IonIcon slot="start" icon={listOutline} /> 
+              {showReports ? 'Hide' : `Reports (${verifiedReports.length})`}
+            </IonButton>
+          </div>
+
+          {/* ANNOUNCEMENTS LIST */}
+          {showAnnouncements && (
+            <div style={{ marginTop: '15px' }}>
+              {announcements.map((ann) => (
+                <IonCard key={ann.id} style={{ margin: '0 0 10px 0', borderRadius: '12px' }}>
+                  <IonCardContent>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <h3 style={{ margin: 0, fontWeight: 'bold', fontSize: '1rem' }}>{ann.title}</h3>
+                      <IonBadge color={ann.type === 'unexpected' ? 'danger' : 'warning'}>
+                        {ann.type === 'unexpected' ? 'Emergency' : 'Scheduled'}
+                      </IonBadge>
+                    </div>
+                    <p style={{ margin: '0 0 5px 0', fontSize: '0.9em' }}>{ann.description}</p>
+                    <p style={{ margin: '0', fontSize: '0.8em', color: 'gray' }}>
+                      <strong>Apektado:</strong> {ann.affectedAreas?.join(', ')}
+                    </p>
+                  </IonCardContent>
+                </IonCard>
+              ))}
+            </div>
+          )}
+
           {/* VERIFIED REPORTS LIST */}
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '30px', marginBottom: '15px', color: 'var(--ion-text-color)' }}>Pinned Reports ({verifiedReports.length})</h2>
-          {verifiedReports.length === 0 ? (
-            <p style={{ color: 'gray' }}>Walang pinned reports.</p>
-          ) : (
-            verifiedReports.map((report) => (
-              <IonCard key={report.id} style={{ margin: '0 0 10px 0', borderRadius: '12px' }}>
-                <IonCardContent>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <h3 style={{ margin: 0, fontWeight: 'bold', fontSize: '1rem' }}>{report.barangay}</h3>
-                    <IonBadge color="warning">PINNED</IonBadge>
-                  </div>
-                  <p style={{ margin: '0 0 10px 0', fontSize: '0.9em' }}>{report.description}</p>
-                  <IonButton size="small" color="success" onClick={() => handleResolve(report.id)}>
-                    <IonIcon slot="start" icon={checkmarkCircleOutline} /> Mark as Resolved
-                  </IonButton>
-                </IonCardContent>
-              </IonCard>
-            ))
+          {showReports && (
+            <div style={{ marginTop: '15px' }}>
+              {verifiedReports.map((report) => (
+                <IonCard key={report.id} style={{ margin: '0 0 10px 0', borderRadius: '12px' }}>
+                  <IonCardContent>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <h3 style={{ margin: 0, fontWeight: 'bold', fontSize: '1rem' }}>{report.barangay}</h3>
+                      <IonBadge color="warning">PINNED</IonBadge>
+                    </div>
+                    <p style={{ margin: '0 0 10px 0', fontSize: '0.9em' }}>{report.description}</p>
+                    <IonButton size="small" color="success" onClick={() => handleResolve(report.id)}>
+                      <IonIcon slot="start" icon={checkmarkCircleOutline} /> Mark as Resolved
+                    </IonButton>
+                  </IonCardContent>
+                </IonCard>
+              ))}
+            </div>
           )}
 
           {/* PENDING REPORTS SECTION */}
@@ -241,11 +307,9 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
                     </div>
                     <p style={{ margin: '0 0 15px 0', fontSize: '0.95em' }}>{report.description}</p>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      <IonButton size="small" fill="outline" color="dark" onClick={() => updateDoc(doc(db, 'reports', report.id), { status: 'approved' })}>Verify</IonButton>
-                      <IonButton size="small" color="warning" onClick={() => {
-                        updateDoc(doc(db, 'reports', report.id), { status: 'approved' });
-                        navigate('/admin/dashboard');
-                      }}>Verify & pin</IonButton>
+                      <IonButton size="small" fill="outline" color="dark" onClick={() => handleVerifyAndPin(report.id)}>Verify</IonButton>
+                      <IonButton size="small" color="warning" onClick={() => handleVerifyAndPin(report.id)}>Verify & pin</IonButton>
+                      <IonButton size="small" fill="outline" color="danger" onClick={() => handleReject(report.id)}>Reject</IonButton>
                     </div>
                   </IonCardContent>
                 </IonCard>
