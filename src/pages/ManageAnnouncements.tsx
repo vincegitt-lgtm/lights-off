@@ -1,8 +1,54 @@
 import { useState, useEffect } from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonItem, IonLabel, IonInput, IonButton, IonSelect, IonSelectOption, IonTextarea, IonList, IonText, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonBadge, IonCardSubtitle, IonIcon, IonDatetime, IonDatetimeButton, IonModal } from '@ionic/react';
+import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonItem, IonLabel, IonInput, IonButton, IonSelect, IonSelectOption, IonTextarea, IonText, IonCard, IonCardContent, IonIcon, IonSpinner } from '@ionic/react';
 import { collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import { partlySunnyOutline } from 'ionicons/icons';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import { locationOutline } from 'ionicons/icons';
+
+// --- LEAFLET ICONS SETUP ---
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
+
+// Component para sa pin location at click event
+function LocationMarker({ position, setPosition, setBarangay }: { position: any, setPosition: any, setBarangay: any }) {
+  const map = useMapEvents({
+    click(e) {
+      setPosition(e.latlng);
+      fetchBarangay(e.latlng.lat, e.latlng.lng, setBarangay);
+    },
+  });
+
+  return position === null ? null : (
+    <Marker position={position}></Marker>
+  );
+}
+
+// Function para makuha ang Barangay name base sa coordinates
+const fetchBarangay = async (lat: number, lng: number, setBarangay: any) => {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+    const data = await res.json();
+    
+    if (data && data.address) {
+      const brgy = data.address.village || data.address.suburb || data.address.neighbourhood || data.address.hamlet || '';
+      if (brgy) {
+        setBarangay(brgy); // Awtomatikong ise-set ang Barangay dropdown
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching barangay:", error);
+  }
+};
 
 interface Props {
   adminBranch: string;
@@ -19,12 +65,11 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [announcements, setAnnouncements] = useState<any[]>([]);
-  const [weatherText, setWeatherText] = useState('Fetching...');
   const [submitting, setSubmitting] = useState(false);
-  
-  // Pinned Location State
-  const [pinnedLat, setPinnedLat] = useState<number | null>(null);
-  const [pinnedLng, setPinnedLng] = useState<number | null>(null);
+
+  // Map State
+  const [mapCenter, setMapCenter] = useState<[number, number]>([13.4000, 121.1833]);
+  const [pinPosition, setPinPosition] = useState<any>(null);
 
   const getCoordinates = (branch: string) => {
     switch(branch) {
@@ -36,31 +81,10 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
   };
 
   useEffect(() => {
-    // Check kung may pinned location galing sa mapa
-    const savedPin = localStorage.getItem('pinnedLocation');
-    if (savedPin) {
-      const { lat, lng } = JSON.parse(savedPin);
-      setPinnedLat(lat);
-      setPinnedLng(lng);
-    }
-
-    const fetchAdminWeather = async () => {
-      const { lat, lon } = getCoordinates(adminBranch);
-      try {
-        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=Asia%2FManila`);
-        const data = await res.json();
-        const temp = data.current.temperature_2m;
-        const code = data.current.weather_code;
-        let condition = "Clear";
-        if (code > 0 && code < 50) condition = "Cloudy";
-        if (code >= 51 && code <= 67) condition = "Raining";
-        if (code >= 80 && code <= 82) condition = "Heavy Rain";
-        if (code >= 95) condition = "Thunderstorm";
-        setWeatherText(`${condition} | ${temp}°C`);
-      } catch { setWeatherText('Weather data unavailable'); }
-    };
-    
-    if (adminBranch) fetchAdminWeather();
+    // Initialize map center base sa admin branch
+    const { lat, lon } = getCoordinates(adminBranch);
+    setMapCenter([lat, lon]);
+    setPinPosition({ lat, lng: lon });
 
     const q = query(
       collection(db, 'announcements'),
@@ -86,23 +110,8 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
     setSubmitting(true);
 
     try {
-      // Gumamit ng pinned location kung meron, kung wala, mag-geocode
-      let finalLat = pinnedLat;
-      let finalLng = pinnedLng;
-
-      if (!finalLat || !finalLng) {
-        const firstBarangay = affectedAreas.split(',')[0].trim();
-        try {
-          const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(firstBarangay + ', Oriental Mindoro, Philippines')}`);
-          const geoData = await geoRes.json();
-          if (geoData && geoData.length > 0) {
-            finalLat = parseFloat(geoData[0].lat);
-            finalLng = parseFloat(geoData[0].lon);
-          }
-        } catch (geoErr) {
-          console.error("Geocoding error:", geoErr);
-        }
-      }
+      const finalLat = pinPosition ? pinPosition.lat : mapCenter[0];
+      const finalLng = pinPosition ? pinPosition.lng : mapCenter[1];
 
       await addDoc(collection(db, 'announcements'), {
         title,
@@ -119,14 +128,8 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
         createdBy: auth.currentUser?.uid,
         timestamp: serverTimestamp(),
       });
-      
       setSuccess('Matagumpay na na-post ang announcement!');
       setTitle(''); setDescription(''); setAffectedAreas('');
-      
-      // Clear pinned location
-      localStorage.removeItem('pinnedLocation');
-      setPinnedLat(null);
-      setPinnedLng(null);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -146,129 +149,139 @@ const ManageAnnouncements: React.FC<Props> = ({ adminBranch }) => {
     <IonPage>
       <IonHeader className="ion-no-border">
         <IonToolbar color="primary">
-          <IonTitle style={{ fontWeight: 'bold' }}>Manage Announcements</IonTitle>
+          <IonTitle style={{ fontWeight: 'bold' }}>Add Announcement</IonTitle>
         </IonToolbar>
       </IonHeader>
       <IonContent className="ion-padding">
         
-        <IonCard color="light" style={{ margin: '0 0 15px 0' }}>
-          <IonCardHeader>
-            <IonCardSubtitle>
-              <IonIcon icon={partlySunnyOutline} /> Current Weather in {adminBranch}
-            </IonCardSubtitle>
-            <IonCardTitle style={{ fontSize: '1.2em' }}>{weatherText}</IonCardTitle>
-          </IonCardHeader>
-        </IonCard>
+        <h2 style={{ fontWeight: 'bold', marginBottom: '15px' }}>Add Announcement</h2>
 
-        {/* PINNED LOCATION INDICATOR */}
-        {pinnedLat && pinnedLng && (
-          <IonCard color="success" style={{ margin: '0 0 15px 0' }}>
-            <IonCardContent>
-              <IonText color="white">
-                <p style={{ margin: 0, fontWeight: 'bold' }}>📍 Naka-pin na Lokasyon</p>
-                <p style={{ margin: 0, fontSize: '0.85em' }}>Lat: {pinnedLat.toFixed(4)}, Lng: {pinnedLng.toFixed(4)}</p>
-              </IonText>
-              <IonButton size="small" fill="clear" color="light" onClick={() => {
-                localStorage.removeItem('pinnedLocation');
-                setPinnedLat(null);
-                setPinnedLng(null);
-              }}>
-                Clear Pin
-              </IonButton>
-            </IonCardContent>
-          </IonCard>
-        )}
+        {/* MAPA DITO SA TAAS */}
+        <div style={{ height: '250px', width: '100%', borderRadius: '16px', overflow: 'hidden', marginBottom: '20px', border: '2px solid #e0e0e0' }}>
+          <MapContainer 
+            center={mapCenter} 
+            zoom={11} 
+            style={{ height: '100%', width: '100%' }}
+            minZoom={10}
+            maxZoom={18}
+            maxBounds={[
+              [12.5, 120.5], // Southwest Oriental Mindoro
+              [13.8, 121.8]  // Northeast Oriental Mindoro
+            ]}
+            maxBoundsViscosity={1.0}
+          >
+            <TileLayer 
+              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" 
+              attribution='&copy; OpenStreetMap' 
+            />
+            <LocationMarker position={pinPosition} setPosition={setPinPosition} setBarangay={setAffectedAreas} />
+          </MapContainer>
+        </div>
+        <p style={{ fontSize: '0.85em', color: 'gray', marginTop: '-10px', marginBottom: '20px', textAlign: 'center' }}>
+          <IonIcon icon={locationOutline} /> I-tap ang mapa para awtomatikong makuha ang Barangay.
+        </p>
 
-        <h2>Create New Announcement</h2>
-        
         {error && <IonText color="danger"><p>{error}</p></IonText>}
         {success && <IonText color="success"><p>{success}</p></IonText>}
 
-        <IonList>
-          <IonItem>
-            <IonLabel position="stacked">Title</IonLabel>
-            <IonInput value={title} onIonChange={e => setTitle(e.detail.value!)} />
-          </IonItem>
-          <IonItem>
-            <IonLabel position="stacked">Description</IonLabel>
-            <IonTextarea value={description} onIonChange={e => setDescription(e.detail.value!)} rows={2} />
-          </IonItem>
-          <IonItem>
-            <IonLabel position="stacked">Type</IonLabel>
-            <IonSelect value={type} onIonChange={e => setType(e.detail.value)}>
-              <IonSelectOption value="scheduled">Scheduled Outage</IonSelectOption>
-              <IonSelectOption value="unexpected">Unexpected Outage</IonSelectOption>
-            </IonSelect>
-          </IonItem>
+        <IonCard style={{ borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+          <IonCardContent>
+            
+            <IonItem lines="none" style={{ marginBottom: '10px' }}>
+              <IonLabel position="stacked" style={{ fontWeight: 'bold', color: '#000' }}>Barangay affected</IonLabel>
+              <IonInput 
+                value={affectedAreas} 
+                onIonChange={e => setAffectedAreas(e.detail.value!)} 
+                placeholder="Pumili sa mapa o i-type"
+                style={{ '--background': '#f0f0f0', '--padding-start': '10px', borderRadius: '8px' }}
+              />
+            </IonItem>
 
-          <IonItem>
-            <IonLabel position="stacked">Petsa ng Outage</IonLabel>
-            <IonDatetimeButton datetime="date-picker"></IonDatetimeButton>
-            <IonModal keepContentsMounted={true}>
-              <IonDatetime id="date-picker" presentation="date" value={scheduledDate} onIonChange={e => setScheduledDate(e.detail.value as string)}></IonDatetime>
-            </IonModal>
-          </IonItem>
+            <IonItem lines="none" style={{ marginBottom: '10px' }}>
+              <IonLabel position="stacked" style={{ fontWeight: 'bold', color: '#000' }}>Type</IonLabel>
+              <IonSelect 
+                value={type} 
+                onIonChange={e => setType(e.detail.value)}
+                style={{ '--background': '#f0f0f0', '--padding-start': '10px', borderRadius: '8px', width: '100%' }}
+              >
+                <IonSelectOption value="scheduled">Scheduled</IonSelectOption>
+                <IonSelectOption value="unexpected">Unexpected</IonSelectOption>
+              </IonSelect>
+            </IonItem>
 
-          <IonItem>
-            <IonLabel position="stacked">Simula ng Outage</IonLabel>
-            <IonDatetimeButton datetime="start-time-picker"></IonDatetimeButton>
-            <IonModal keepContentsMounted={true}>
-              <IonDatetime id="start-time-picker" presentation="time" value={startTime} onIonChange={e => setStartTime(e.detail.value as string)}></IonDatetime>
-            </IonModal>
-          </IonItem>
+            <IonItem lines="none" style={{ marginBottom: '10px' }}>
+              <IonLabel position="stacked" style={{ fontWeight: 'bold', color: '#000' }}>Title / Reason</IonLabel>
+              <IonInput 
+                value={title} 
+                onIonChange={e => setTitle(e.detail.value!)} 
+                placeholder="e.g. Line maintenance"
+                style={{ '--background': '#f0f0f0', '--padding-start': '10px', borderRadius: '8px' }}
+              />
+            </IonItem>
 
-          <IonItem>
-            <IonLabel position="stacked">Tapos ng Outage</IonLabel>
-            <IonDatetimeButton datetime="end-time-picker"></IonDatetimeButton>
-            <IonModal keepContentsMounted={true}>
-              <IonDatetime id="end-time-picker" presentation="time" value={endTime} onIonChange={e => setEndTime(e.detail.value as string)}></IonDatetime>
-            </IonModal>
-          </IonItem>
+            <IonItem lines="none" style={{ marginBottom: '10px' }}>
+              <IonLabel position="stacked" style={{ fontWeight: 'bold', color: '#000' }}>Description</IonLabel>
+              <IonTextarea 
+                value={description} 
+                onIonChange={e => setDescription(e.detail.value!)} 
+                rows={2}
+                style={{ '--background': '#f0f0f0', '--padding-start': '10px', borderRadius: '8px' }}
+              />
+            </IonItem>
 
-          <IonItem>
-            <IonLabel position="stacked">Affected Barangay/s</IonLabel>
-            <IonInput value={affectedAreas} onIonChange={e => setAffectedAreas(e.detail.value!)} placeholder="Hal: Brgy. Poblacion, Brgy. Sta. Maria" />
-          </IonItem>
-        </IonList>
-        <IonButton expand="block" className="ion-margin-top" onClick={handleSubmit} disabled={submitting}>
-          {submitting ? 'Nagpo-post...' : 'Post Announcement'}
-        </IonButton>
+            <IonItem lines="none" style={{ marginBottom: '10px' }}>
+              <IonLabel position="stacked" style={{ fontWeight: 'bold', color: '#000' }}>Start</IonLabel>
+              <IonInput 
+                type="datetime-local" 
+                value={startTime.substring(0, 16)} 
+                onIonChange={e => setStartTime(e.detail.value!)} 
+                style={{ '--background': '#f0f0f0', '--padding-start': '10px', borderRadius: '8px' }}
+              />
+            </IonItem>
 
-        <h2 className="ion-margin-top">Current Announcements</h2>
+            <IonItem lines="none" style={{ marginBottom: '20px' }}>
+              <IonLabel position="stacked" style={{ fontWeight: 'bold', color: '#000' }}>Expected restoration</IonLabel>
+              <IonInput 
+                type="datetime-local" 
+                value={endTime.substring(0, 16)} 
+                onIonChange={e => setEndTime(e.detail.value!)} 
+                style={{ '--background': '#f0f0f0', '--padding-start': '10px', borderRadius: '8px' }}
+              />
+            </IonItem>
+
+            <IonButton 
+              expand="block" 
+              onClick={handleSubmit} 
+              disabled={submitting}
+              style={{ '--background': '#FFC107', '--color': '#000000', '--border-radius': '8px', height: '50px', fontWeight: 'bold' }}
+            >
+              {submitting ? 'Publishing...' : 'Publish announcement'}
+            </IonButton>
+
+          </IonCardContent>
+        </IonCard>
+
+        <h2 className="ion-margin-top" style={{ fontWeight: 'bold' }}>Current Announcements</h2>
         {announcements.length === 0 ? <p>Walang announcements.</p> : (
           announcements.map((ann) => (
             <IonCard key={ann.id}>
-              <IonCardHeader>
-                <IonCardTitle>{ann.title}</IonCardTitle>
-                <IonBadge color={ann.status === 'ongoing' ? 'warning' : ann.status === 'restored' ? 'success' : 'medium'}>
-                  {ann.status.toUpperCase()}
-                </IonBadge>
-              </IonCardHeader>
               <IonCardContent>
-                <p>{ann.description}</p>
-                {ann.scheduledDate && (
-                  <p style={{ fontSize: '0.85em', color: 'gray' }}>
-                    <strong>Petsa:</strong> {new Date(ann.scheduledDate).toLocaleDateString()}
-                  </p>
-                )}
-                {ann.startTime && ann.endTime && (
-                  <p style={{ fontSize: '0.85em', color: 'gray' }}>
-                    <strong>Oras:</strong> {new Date(ann.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(ann.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                )}
+                <h3 style={{ fontWeight: 'bold' }}>{ann.title}</h3>
+                <IonText color="medium"><p>{ann.description}</p></IonText>
                 <p style={{ fontSize: '0.85em', color: 'gray' }}>
-                  <strong>Affected Barangay/s:</strong> {ann.affectedAreas?.join(', ')}
+                  <strong>Barangay:</strong> {ann.affectedAreas?.join(', ')}<br/>
+                  <strong>Start:</strong> {new Date(ann.startTime).toLocaleString()}<br/>
+                  <strong>End:</strong> {new Date(ann.endTime).toLocaleString()}
                 </p>
-                {ann.status === 'ongoing' && (
-                  <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                    <IonButton size="small" color="success" onClick={() => updateStatus(ann.id, 'restored')}>Mark as Restored</IonButton>
-                    <IonButton size="small" color="danger" onClick={() => updateStatus(ann.id, 'cancelled')}>Cancel</IonButton>
-                  </div>
-                )}
+                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                  <IonButton size="small" color="success" onClick={() => updateStatus(ann.id, 'restored')}>Mark as Restored</IonButton>
+                  <IonButton size="small" color="danger" onClick={() => updateStatus(ann.id, 'cancelled')}>Cancel</IonButton>
+                </div>
               </IonCardContent>
             </IonCard>
           ))
         )}
+
       </IonContent>
     </IonPage>
   );
