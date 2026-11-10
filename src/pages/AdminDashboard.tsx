@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardContent, IonGrid, IonRow, IonCol, IonButton, IonIcon, IonSpinner, IonBadge } from '@ionic/react';
-import { collection, query, where, onSnapshot, doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardContent, IonGrid, IonRow, IonCol, IonButton, IonIcon, IonSpinner, IonBadge, IonList, IonItem, IonLabel } from '@ionic/react';
+import { collection, query, where, onSnapshot, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { addCircleOutline, trashOutline } from 'ionicons/icons';
+import { addCircleOutline, mapOutline, listOutline } from 'ionicons/icons';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -29,6 +29,9 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
   const [loading, setLoading] = useState(true);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [pendingReports, setPendingReports] = useState<any[]>([]);
+  const [verifiedReports, setVerifiedReports] = useState<any[]>([]); // Para sa mapa at listahan
+  
+  const [showList, setShowList] = useState(false); // Toggle para sa listahan sa ibaba
   
   const navigate = useNavigate();
 
@@ -56,7 +59,6 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
     const unsubAnn = onSnapshot(qAnn, (snap) => {
       const data: any[] = [];
       snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
-      data.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
       setAnnouncements(data);
       setStats(prev => ({ ...prev, announcements: data.length, ongoing: data.filter(d => d.status === 'ongoing').length, resolved: data.filter(d => d.status === 'restored').length }));
     });
@@ -69,31 +71,18 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
       setStats(prev => ({ ...prev, pending: data.length }));
     });
 
-    return () => { unsubAnn(); unsubPending(); };
+    // Kunin ang VERIFIED reports para sa mapa at listahan
+    const qVerified = query(collection(db, 'reports'), where('branch', '==', adminBranch), where('status', '==', 'approved'));
+    const unsubVerified = onSnapshot(qVerified, (snap) => {
+      const data: any[] = [];
+      snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+      setVerifiedReports(data);
+    });
+
+    return () => { unsubAnn(); unsubPending(); unsubVerified(); };
   }, [adminBranch]);
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Burahin ito?')) {
-      try { await deleteDoc(doc(db, 'announcements', id)); } catch (e) { console.error(e); }
-    }
-  };
-
-  const handleRestore = async (id: string) => {
-    try { await updateDoc(doc(db, 'announcements', id), { status: 'restored' }); } catch (e) { console.error(e); }
-  };
-
   if (loading) return <div style={{ textAlign: 'center', marginTop: '50px' }}><IonSpinner name="crescent" /></div>;
-
-  // FILTER: Ipakita lang ang marker kung "ongoing" AT hindi pa tapos ang endTime
-  const activeMarkers = announcements.filter(a => {
-    if (!a.latitude || !a.longitude) return false;
-    if (a.status !== 'ongoing') return false;
-    if (a.endTime) {
-      const end = new Date(a.endTime).getTime();
-      if (end < Date.now()) return false; // Tapos na ang oras
-    }
-    return true;
-  });
 
   return (
     <IonPage>
@@ -109,6 +98,7 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
           </h1>
           <p style={{ color: 'gray', marginTop: '0', marginBottom: '20px' }}>Welcome back, {adminName?.split(' ')[0]}</p>
 
+          {/* STATS CARDS */}
           <IonGrid className="ion-no-padding">
             <IonRow>
               <IonCol size="6" style={{ padding: '5px' }}>
@@ -154,60 +144,37 @@ const AdminDashboard: React.FC<Props> = ({ adminBranch }) => {
               maxBounds={[[12.5, 120.5], [13.8, 121.8]]} maxBoundsViscosity={1.0}
             >
               <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              {/* Gagamitin natin ang activeMarkers (filtered) */}
-              {activeMarkers.map(a => (
+              {verifiedReports.filter(a => a.latitude && a.longitude).map(a => (
                 <Marker key={a.id} position={[a.latitude, a.longitude]} icon={redIcon}>
-                  <Popup><strong>{a.title}</strong><br/>{a.affectedAreas?.join(', ')}</Popup>
+                  <Popup><strong>{a.barangay}</strong><br/>{a.description}</Popup>
                 </Marker>
               ))}
             </MapContainer>
           </div>
 
-          {/* PENDING REPORTS */}
-          {pendingReports.length > 0 && (
-            <>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '30px', marginBottom: '15px' }}>Pending Reports</h2>
-              {pendingReports.map((report) => (
-                <IonCard key={report.id} style={{ margin: '0 0 15px 0', borderRadius: '12px' }}>
-                  <IonCardContent>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <h2 style={{ margin: 0, fontWeight: 'bold', fontSize: '1.1rem' }}>{report.barangay}</h2>
-                      <IonBadge color="danger">New</IonBadge>
-                    </div>
-                    <p style={{ margin: '0 0 15px 0', fontSize: '0.95em' }}>{report.description}</p>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <IonButton size="small" fill="outline" color="dark" onClick={() => updateDoc(doc(db, 'reports', report.id), { status: 'approved' })}>Verify</IonButton>
-                      <IonButton size="small" color="warning" onClick={() => {
-                        updateDoc(doc(db, 'reports', report.id), { status: 'approved' });
-                        navigate('/admin/dashboard');
-                      }}>Verify & pin</IonButton>
-                    </div>
-                  </IonCardContent>
-                </IonCard>
-              ))}
-            </>
+          {/* TOGGLE LISTAHAN NG VERIFIED REPORTS */}
+          <IonButton expand="block" fill="outline" color="dark" onClick={() => setShowList(!showList)} style={{ marginTop: '15px' }}>
+            <IonIcon slot="start" icon={showList ? mapOutline : listOutline} /> 
+            {showList ? 'Show Map' : `Show Pinned Reports (${verifiedReports.length})`}
+          </IonButton>
+
+          {showList && (
+            <IonList style={{ marginTop: '10px' }}>
+              {verifiedReports.length === 0 ? <p style={{ padding: '10px', color: 'gray' }}>Walang pinned reports.</p> : (
+                verifiedReports.map((report) => (
+                  <IonItem key={report.id}>
+                    <IonLabel>
+                      <h2 style={{ fontWeight: 'bold' }}>{report.barangay}</h2>
+                      <p>{report.description}</p>
+                    </IonLabel>
+                    <IonBadge color="warning" slot="end">PINNED</IonBadge>
+                  </IonItem>
+                ))
+              )}
+            </IonList>
           )}
 
-          {/* LATEST ANNOUNCEMENTS */}
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '30px', marginBottom: '15px' }}>Latest announcements</h2>
-          {announcements.slice(0, 3).map((ann) => (
-            <IonCard key={ann.id} style={{ margin: '0 0 10px 0', borderRadius: '12px' }}>
-              <IonCardContent>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                  <div>
-                    <h3 style={{ margin: '0 0 5px 0', fontWeight: 'bold', fontSize: '1rem' }}>{ann.title}</h3>
-                    <p style={{ margin: '0', fontSize: '0.9em', color: 'gray' }}>{ann.description}</p>
-                  </div>
-                  <IonBadge color={ann.type === 'unexpected' ? 'danger' : 'warning'}>{ann.type === 'unexpected' ? 'Emergency' : 'Scheduled'}</IonBadge>
-                </div>
-                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                  <IonButton size="small" fill="outline" color="dark" onClick={() => handleRestore(ann.id)}>Mark restored</IonButton>
-                  <IonButton size="small" fill="outline" color="danger" onClick={() => handleDelete(ann.id)}><IonIcon slot="start" icon={trashOutline} /> Delete</IonButton>
-                </div>
-              </IonCardContent>
-            </IonCard>
-          ))}
-
+          {/* ADD ANNOUNCEMENT BUTTON */}
           <IonButton expand="block" onClick={() => navigate('/admin/announcements')} style={{ '--background': '#FFD600', '--color': '#000', '--border-radius': '12px', height: '55px', fontWeight: 'bold', marginTop: '30px' }}>
             <IonIcon slot="start" icon={addCircleOutline} /> Add announcement
           </IonButton>

@@ -2,7 +2,7 @@
    THEME (GREEN, YELLOW, DARK)
 ========================================= */
 :root {
-  /* Primary: Green (base sa logo) */
+  /* Primary: Green */
   --ion-color-primary: #00C853;
   --ion-color-primary-rgb: 0, 200, 83;
   --ion-color-primary-contrast: #ffffff;
@@ -10,7 +10,7 @@
   --ion-color-primary-shade: #00b049;
   --ion-color-primary-tint: #1ace65;
 
-  /* Secondary: Yellow (highlights) */
+  /* Secondary: Yellow */
   --ion-color-secondary: #FFD600;
   --ion-color-secondary-rgb: 255, 214, 0;
   --ion-color-secondary-contrast: #000000;
@@ -28,10 +28,10 @@
 }
 
 /* =========================================
-   DARK MODE
+   DARK MODE (GLOBAL)
 ========================================= */
 body.dark {
-  --ion-background-color: #121212;
+  --ion-background-color: #121212 !important; /* Dark background sa buong app */
   --ion-background-color-rgb: 18, 18, 18;
   --ion-text-color: #ffffff;
   --ion-text-color-rgb: 255, 255, 255;
@@ -40,15 +40,24 @@ body.dark {
   --ion-item-background: #1E1E1E;
 }
 
-/* DARK MODE INPUT FIX (Dark bg, White text) */
+/* DARK MODE INPUTS */
 body.dark ion-input,
 body.dark ion-textarea,
 body.dark ion-select {
   --color: #ffffff !important;
   --placeholder-color: #aaaaaa !important;
-  --background: #2C2C2C !important; /* Dark gray background */
-  border-radius: 8px;
+  --background: #2C2C2C !important;
+  border-radius: 8px !important;
+  padding: 0 10px !important;
   margin: 5px 0;
+}
+
+/* Ayusin ang Select at Textarea para hindi lumabas ang puting border */
+body.dark ion-select::part(container),
+body.dark ion-textarea::part(native) {
+  background-color: #2C2C2C !important;
+  color: #ffffff !important;
+  border-radius: 8px !important;
 }
 
 body.dark ion-item {
@@ -64,14 +73,22 @@ body.dark h1, body.dark h2, body.dark h3, body.dark p, body.dark span {
   color: #ffffff;
 }
 
-/* LIGHT MODE INPUT FIX (Light bg, Black text) */
+/* LIGHT MODE INPUTS */
 ion-input,
 ion-textarea,
 ion-select {
-  --background: #f0f0f0; /* Light gray background */
-  --color: #000000; /* Black text */
+  --background: #f0f0f0;
+  --color: #000000;
   border-radius: 8px;
+  padding: 0 10px !important;
   margin: 5px 0;
+}
+
+ion-select::part(container),
+ion-textarea::part(native) {
+  background-color: #f0f0f0 !important;
+  color: #000000 !important;
+  border-radius: 8px !important;
 }
 
 /* =========================================
@@ -80,13 +97,13 @@ ion-select {
 ion-tab-bar {
   --background: #ffffff;
   --color: #8c8c8c;
-  --color-selected: #00C853; /* Green active tab */
+  --color-selected: #00C853;
   border-top: 1px solid #e0e0e0;
 }
 
 body.dark ion-tab-bar {
   --background: #1E1E1E;
   --color: #6e7a8a;
-  --color-selected: #FFD600; /* Yellow active tab sa dark */
+  --color-selected: #FFD600;
   border-top: 1px solid #333;
 }
