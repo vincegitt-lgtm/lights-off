@@ -16,10 +16,9 @@ const Landing: React.FC = () => {
           height: '100vh', 
           padding: '20px',
           textAlign: 'center',
-          backgroundColor: '#000000' // <-- DITO NA NAKALAGAY ANG BACKGROUND
+          backgroundColor: 'var(--ion-background-color)'
         }}>
           
-          {/* LOGO */}
           <img 
             src={logo} 
             alt="LightsOff Logo" 
@@ -32,21 +31,19 @@ const Landing: React.FC = () => {
             }} 
           />
 
-          {/* TITLE */}
           <h1 style={{ 
             fontSize: '2.5rem', 
             fontWeight: '900', 
-            color: '#ffffff', 
+            color: 'var(--ion-text-color)',
             margin: '0 0 15px 0',
             letterSpacing: '1px'
           }}>
             LightsOff
           </h1>
 
-          {/* DESCRIPTION */}
           <p style={{ 
             fontSize: '1rem', 
-            color: '#aaaaaa', 
+            color: 'var(--ion-color-medium)',
             marginBottom: '40px',
             lineHeight: '1.5',
             maxWidth: '300px'
@@ -54,7 +51,6 @@ const Landing: React.FC = () => {
             Real-time power outage updates for Oriental Mindoro. Stay informed and report outages in your community.
           </p>
 
-          {/* GET STARTED BUTTON */}
           <IonButton 
             expand="block" 
             onClick={() => navigate('/login')}

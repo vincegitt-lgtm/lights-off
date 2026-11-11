@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardContent, IonItem, IonLabel, IonSelect, IonSelectOption, IonToggle, IonSpinner } from '@ionic/react';
+import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonItem, IonLabel, IonSelect, IonSelectOption, IonToggle, IonSpinner, IonIcon } from '@ionic/react';
+import { globeOutline, sunnyOutline, moonOutline } from 'ionicons/icons';
 import { useLanguage } from '../context/LanguageContext';
 
 const AdminSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [notifications, setNotifications] = useState(true);
   const { lang, setLang } = useLanguage();
 
   useEffect(() => {
@@ -13,6 +13,9 @@ const AdminSettings: React.FC = () => {
     if (savedTheme === 'dark') {
       setIsDarkMode(true);
       document.body.classList.add('dark');
+    } else {
+      setIsDarkMode(false);
+      document.body.classList.remove('dark');
     }
     setLoading(false);
   }, []);
@@ -39,43 +42,32 @@ const AdminSettings: React.FC = () => {
         </IonToolbar>
       </IonHeader>
       <IonContent>
-        {/* GINAMIT ANG var(--ion-background-color) IMBES NA HARDCODED NA PUTI */}
-        <div style={{ padding: '20px', backgroundColor: 'var(--ion-background-color)', minHeight: '100vh' }}>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--ion-text-color)', margin: '0 0 20px 0' }}>Settings</h1>
-
-          <IonCard style={{ margin: '0 0 15px 0', borderRadius: '12px' }}>
-            <IonCardContent>
-              <IonItem lines="none">
-                <IonLabel>
-                  <h2 style={{ fontWeight: 'bold', fontSize: '1rem' }}>Outage notifications</h2>
-                  <p style={{ fontSize: '0.85em' }}>Alert me about new announcements</p>
-                </IonLabel>
-                <IonToggle checked={notifications} onIonChange={(e) => setNotifications(e.detail.checked)} color="success" />
-              </IonItem>
-            </IonCardContent>
+        <div style={{ padding: '20px', backgroundColor: 'var(--ion-background-color)' }}>
+          
+          <h2 style={{ fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '15px', color: 'var(--ion-text-color)' }}>Appearance</h2>
+          
+          <IonCard style={{ marginBottom: '10px', borderRadius: '12px' }}>
+            <IonItem lines="none">
+              <IonIcon slot="start" icon={globeOutline} color="primary" size="large" />
+              <IonLabel>Language</IonLabel>
+              <IonSelect value={lang} onIonChange={(e) => setLang(e.detail.value)}>
+                <IonSelectOption value="en">English</IonSelectOption>
+                <IonSelectOption value="fil">Filipino</IonSelectOption>
+              </IonSelect>
+            </IonItem>
           </IonCard>
 
-          <IonCard style={{ margin: '0 0 15px 0', borderRadius: '12px' }}>
-            <IonCardContent>
-              <IonLabel style={{ fontWeight: 'bold', marginBottom: '10px', display: 'block' }}>Appearance</IonLabel>
-              
-              <IonItem lines="none" style={{ marginBottom: '10px' }}>
-                <IonLabel>Theme</IonLabel>
-                <IonSelect value={isDarkMode ? 'dark' : 'light'} onIonChange={(e) => toggleTheme({ detail: { checked: e.detail.value === 'dark' } })}>
-                  <IonSelectOption value="light">Light</IonSelectOption>
-                  <IonSelectOption value="dark">Dark</IonSelectOption>
-                </IonSelect>
-              </IonItem>
-
-              <IonItem lines="none">
-                <IonLabel>Language</IonLabel>
-                <IonSelect value={lang} onIonChange={(e) => setLang(e.detail.value)}>
-                  <IonSelectOption value="en">English</IonSelectOption>
-                  <IonSelectOption value="fil">Filipino</IonSelectOption>
-                </IonSelect>
-              </IonItem>
-            </IonCardContent>
+          <IonCard style={{ marginBottom: '20px', borderRadius: '12px' }}>
+            <IonItem lines="none">
+              <IonIcon slot="start" icon={isDarkMode ? moonOutline : sunnyOutline} color={isDarkMode ? "warning" : "primary"} size="large" />
+              <IonLabel>
+                <h2 style={{ fontWeight: 'bold' }}>Dark Mode</h2>
+                <p>Palitan ang kulay ng app</p>
+              </IonLabel>
+              <IonToggle checked={isDarkMode} onIonChange={toggleTheme} />
+            </IonItem>
           </IonCard>
+
         </div>
       </IonContent>
     </IonPage>

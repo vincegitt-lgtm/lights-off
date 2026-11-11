@@ -18,7 +18,7 @@
   --ion-color-secondary-shade: #e0bc00;
   --ion-color-secondary-tint: #ffda1a;
 
-  /* Backgrounds (Light Mode) */
+  /* Backgrounds (Light Mode Default) */
   --ion-background-color: #F8F9FA;
   --ion-text-color: #121212;
   
@@ -28,10 +28,10 @@
 }
 
 /* =========================================
-   DARK MODE (GLOBAL)
+   DARK MODE (Kapag naka-toggle)
 ========================================= */
 body.dark {
-  --ion-background-color: #121212 !important; /* Dark background sa buong app */
+  --ion-background-color: #121212 !important;
   --ion-background-color-rgb: 18, 18, 18;
   --ion-text-color: #ffffff;
   --ion-text-color-rgb: 255, 255, 255;
@@ -52,7 +52,6 @@ body.dark ion-select {
   margin: 5px 0;
 }
 
-/* Ayusin ang Select at Textarea para hindi lumabas ang puting border */
 body.dark ion-select::part(container),
 body.dark ion-textarea::part(native) {
   background-color: #2C2C2C !important;

@@ -13,6 +13,9 @@ const ConsumerSettings: React.FC = () => {
     if (savedTheme === 'dark') {
       setIsDarkMode(true);
       document.body.classList.add('dark');
+    } else {
+      setIsDarkMode(false);
+      document.body.classList.remove('dark');
     }
     setLoading(false);
   }, []);
@@ -39,7 +42,7 @@ const ConsumerSettings: React.FC = () => {
         </IonToolbar>
       </IonHeader>
       <IonContent>
-        <div style={{ padding: '20px', backgroundColor: 'var(--ion-background-color)', minHeight: '100vh' }}>
+        <div style={{ padding: '20px', backgroundColor: 'var(--ion-background-color)' }}>
           
           <h2 style={{ fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '15px', color: 'var(--ion-text-color)' }}>Appearance</h2>
           
