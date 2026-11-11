@@ -7,7 +7,7 @@ const Landing: React.FC = () => {
 
   return (
     <IonPage>
-      <IonContent style={{ '--background': '#000000' }}>
+      <IonContent>
         <div style={{ 
           display: 'flex', 
           flexDirection: 'column', 
@@ -15,7 +15,8 @@ const Landing: React.FC = () => {
           justifyContent: 'center', 
           height: '100vh', 
           padding: '20px',
-          textAlign: 'center'
+          textAlign: 'center',
+          backgroundColor: '#000000' // <-- DITO NA NAKALAGAY ANG BACKGROUND
         }}>
           
           {/* LOGO */}
@@ -27,7 +28,7 @@ const Landing: React.FC = () => {
               height: '150px', 
               objectFit: 'contain', 
               marginBottom: '30px',
-              filter: 'drop-shadow(0 0 20px #00C853)' // Green glow effect
+              filter: 'drop-shadow(0 0 20px #00C853)'
             }} 
           />
 
@@ -66,7 +67,7 @@ const Landing: React.FC = () => {
               height: '55px', 
               fontWeight: 'bold',
               fontSize: '1.1rem',
-              boxShadow: '0 0 15px #00C853' // Green glow effect
+              boxShadow: '0 0 15px #00C853'
             }}
           >
             Get started
