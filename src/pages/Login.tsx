@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonItem, IonLabel, IonInput, IonButton, IonText, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonIcon } from '@ionic/react';
+import { IonContent, IonPage, IonItem, IonLabel, IonInput, IonButton, IonText, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonIcon } from '@ionic/react';
 import { signInWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 import { eyeOutline, eyeOffOutline, logoGoogle } from 'ionicons/icons';
-import logo from '../assets/logo.png'; 
+import logo from '../assets/logo.png';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -14,15 +14,13 @@ const Login: React.FC = () => {
   const [adminBranch, setAdminBranch] = useState('Naujan');
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  
   const navigate = useNavigate();
 
   const handleGoogleSignIn = async () => {
     setError('');
     try {
       const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' }); // LAGING MAGPAPAKITA NG ACCOUNT PICKER
-      
+      provider.setCustomParameters({ prompt: 'select_account' });
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
@@ -33,23 +31,21 @@ const Login: React.FC = () => {
       }
 
       const userDoc = await getDoc(doc(db, 'users', user.uid));
-      
-      if (!userDoc.exists()) {
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.role === 'admin') navigate('/admin');
+        else navigate('/home');
+      } else {
+        // BAGONG USER: I-save sa localStorage at pumunta sa Register
         localStorage.setItem('googleUser', JSON.stringify({
           uid: user.uid,
           email: user.email,
           name: user.displayName || 'Google User'
         }));
-        navigate('/profile-setup');
-      } else {
-        const userData = userDoc.data();
-        if (userData.role === 'admin') navigate('/admin');
-        else navigate('/home');
+        navigate('/register');
       }
     } catch (err: any) {
-      if (err.code !== 'auth/popup-closed-by-user') {
-        setError(err.message);
-      }
+      if (err.code !== 'auth/popup-closed-by-user') setError(err.message);
     }
   };
 
@@ -70,7 +66,6 @@ const Login: React.FC = () => {
       }
 
       const userDoc = await getDoc(doc(db, 'users', user.uid));
-      
       if (userDoc.exists()) {
         const userData = userDoc.data();
         if (loginType === 'admin') {
@@ -102,59 +97,44 @@ const Login: React.FC = () => {
     <IonPage>
       <IonContent className="ion-padding">
         <div style={{ textAlign: 'center', marginTop: '40px', marginBottom: '30px' }}>
-          <img src={logo} alt="LightsOff Logo" style={{ width: '150px', height: '150px', objectFit: 'contain', marginBottom: '15px' }} />
+          <img src={logo} alt="LightsOff Logo" style={{ width: '120px', height: '120px', objectFit: 'contain', marginBottom: '15px' }} />
           <h1 style={{ fontWeight: '900', fontSize: '2rem', color: 'var(--ion-text-color)', margin: '0' }}>LightsOff</h1>
           <p style={{ color: 'gray', fontSize: '0.9em' }}>Power Outage Notification System</p>
         </div>
 
         <div style={{ backgroundColor: 'var(--ion-card-background)', padding: '20px', borderRadius: '20px', boxShadow: '0 4px 16px rgba(0,0,0,0.05)' }}>
-          
           <IonSegment value={loginType} onIonChange={e => setLoginType(e.detail.value as 'consumer' | 'admin')} style={{ marginBottom: '20px' }}>
-            <IonSegmentButton value="consumer">
-              <IonLabel>Consumer</IonLabel>
-            </IonSegmentButton>
-            <IonSegmentButton value="admin">
-              <IonLabel>Admin</IonLabel>
-            </IonSegmentButton>
+            <IonSegmentButton value="consumer"><IonLabel>Consumer</IonLabel></IonSegmentButton>
+            <IonSegmentButton value="admin"><IonLabel>Admin</IonLabel></IonSegmentButton>
           </IonSegment>
 
-          <div>
+          <IonItem lines="none" style={{ marginBottom: '10px' }}>
+            <IonLabel position="stacked">Email</IonLabel>
+            <IonInput type="email" value={email} onIonChange={e => setEmail(e.detail.value!)} />
+          </IonItem>
+          
+          <IonItem lines="none" style={{ marginBottom: '10px' }}>
+            <IonLabel position="stacked">Password</IonLabel>
+            <IonInput type={showPassword ? 'text' : 'password'} value={password} onIonChange={e => setPassword(e.detail.value!)} />
+            <IonButton fill="clear" slot="end" onClick={() => setShowPassword(!showPassword)}>
+              <IonIcon icon={showPassword ? eyeOffOutline : eyeOutline} color="medium" />
+            </IonButton>
+          </IonItem>
+          
+          {loginType === 'admin' && (
             <IonItem lines="none" style={{ marginBottom: '10px' }}>
-              <IonLabel position="stacked">Email</IonLabel>
-              <IonInput type="email" value={email} onIonChange={e => setEmail(e.detail.value!)} />
+              <IonLabel position="stacked">Branch</IonLabel>
+              <IonSelect value={adminBranch} onIonChange={e => setAdminBranch(e.detail.value)}>
+                <IonSelectOption value="Naujan">Naujan</IonSelectOption>
+                <IonSelectOption value="Socorro">Socorro</IonSelectOption>
+                <IonSelectOption value="Calapan City">Calapan City</IonSelectOption>
+              </IonSelect>
             </IonItem>
-            
-            <IonItem lines="none" style={{ marginBottom: '10px' }}>
-              <IonLabel position="stacked">Password</IonLabel>
-              <IonInput 
-                type={showPassword ? 'text' : 'password'} 
-                value={password} 
-                onIonChange={e => setPassword(e.detail.value!)} 
-              />
-              <IonButton fill="clear" slot="end" onClick={() => setShowPassword(!showPassword)}>
-                <IonIcon icon={showPassword ? eyeOffOutline : eyeOutline} color="medium" />
-              </IonButton>
-            </IonItem>
-            
-            {loginType === 'admin' && (
-              <IonItem lines="none" style={{ marginBottom: '10px' }}>
-                <IonLabel position="stacked">Branch</IonLabel>
-                <IonSelect value={adminBranch} onIonChange={e => setAdminBranch(e.detail.value)}>
-                  <IonSelectOption value="Naujan">Naujan</IonSelectOption>
-                  <IonSelectOption value="Socorro">Socorro</IonSelectOption>
-                  <IonSelectOption value="Calapan City">Calapan City</IonSelectOption>
-                </IonSelect>
-              </IonItem>
-            )}
-          </div>
+          )}
 
           {error && <IonText color="danger"><p style={{ fontSize: '0.9em' }}>{error}</p></IonText>}
 
-          <IonButton 
-            expand="block" 
-            onClick={handleLogin} 
-            style={{ '--background': 'var(--app-yellow)', '--color': '#000000', height: '50px', marginTop: '20px' }}
-          >
+          <IonButton expand="block" onClick={handleLogin} style={{ '--background': 'var(--app-yellow)', '--color': '#000000', height: '50px', marginTop: '20px' }}>
             LOGIN
           </IonButton>
 
@@ -166,11 +146,7 @@ const Login: React.FC = () => {
                 <div style={{ flex: 1, height: '1px', backgroundColor: '#e0e0e0' }}></div>
               </div>
 
-              <IonButton 
-                expand="block" 
-                onClick={handleGoogleSignIn}
-                style={{ '--background': '#ffffff', '--color': '#000000', '--border-color': '#e0e0e0', '--border-style': 'solid', '--border-width': '1px', height: '50px', '--border-radius': '12px' }}
-              >
+              <IonButton expand="block" onClick={handleGoogleSignIn} style={{ '--background': '#ffffff', '--color': '#000000', '--border-color': '#e0e0e0', '--border-style': 'solid', '--border-width': '1px', height: '50px', '--border-radius': '12px' }}>
                 <IonIcon slot="start" icon={logoGoogle} style={{ color: '#DB4437' }} /> Sign in with Google
               </IonButton>
 
