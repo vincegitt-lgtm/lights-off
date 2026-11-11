@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar, IonCard, IonCardContent, IonBadge, IonButton, IonIcon, IonSpinner, IonItem, IonLabel, IonInput, IonTextarea } from '@ionic/react';
-import { collection, addDoc, serverTimestamp, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { locationOutline } from 'ionicons/icons';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
@@ -59,6 +59,20 @@ const MyReports: React.FC = () => {
       const user = auth.currentUser;
       if (!user) return;
 
+      // KUNAIN ANG BRANCH NG USER
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        const branch = userDoc.data().branch;
+        setUserBranch(branch);
+        // I-set ang map center base sa branch
+        switch(branch) {
+          case 'Naujan': setMapCenter([13.3244, 121.3066]); break;
+          case 'Socorro': setMapCenter([13.0431, 121.4128]); break;
+          case 'Calapan City': setMapCenter([13.4115, 121.1803]); break;
+          default: setMapCenter([13.4000, 121.1833]);
+        }
+      }
+
       const q = query(collection(db, 'reports'), where('userId', '==', user.uid));
       unsubscribe = onSnapshot(q, (snapshot) => {
         const data: any[] = [];
@@ -89,6 +103,10 @@ const MyReports: React.FC = () => {
       alert('Punan ang barangay at description.');
       return;
     }
+    if (!userBranch) {
+      alert('Walang branch na naka-assign sa account mo. I-update ang profile.');
+      return;
+    }
     setSubmitting(true);
     try {
       await addDoc(collection(db, 'reports'), {
@@ -96,7 +114,7 @@ const MyReports: React.FC = () => {
         userName: auth.currentUser?.displayName || 'Anonymous',
         description,
         barangay,
-        branch: userBranch,
+        branch: userBranch, // <-- SIGURADONG MAY VALUE
         status: 'pending',
         startTime: new Date(startTime).toISOString(),
         timestamp: serverTimestamp(),
@@ -170,7 +188,7 @@ const MyReports: React.FC = () => {
             </IonCardContent>
           </IonCard>
 
-          {/* MY REPORTS LIST (Scrollable Panel) */}
+          {/* MY REPORTS LIST */}
           <h2 style={{ fontWeight: 'bold', color: 'var(--ion-text-color)', marginBottom: '10px' }}>My Reports</h2>
           
           {reports.length === 0 ? (

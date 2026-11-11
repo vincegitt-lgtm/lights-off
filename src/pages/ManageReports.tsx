@@ -23,7 +23,11 @@ const ManageReports: React.FC<Props> = ({ adminBranch }) => {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
   useEffect(() => {
-    const qReports = query(collection(db, 'reports'), where('branch', '==', adminBranch));
+    // TANGGALIN ANG status FILTER SA QUERY PARA LAHAT NG REPORTS NG BRANCH MAKUHA
+    const qReports = query(
+      collection(db, 'reports'), 
+      where('branch', '==', adminBranch)
+    );
     const unsubReports = onSnapshot(qReports, (snap) => {
       const data: any[] = [];
       snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
@@ -106,7 +110,7 @@ const ManageReports: React.FC<Props> = ({ adminBranch }) => {
 
   if (loading) return <div style={{ textAlign: 'center', marginTop: '50px' }}><IonSpinner name="crescent" /></div>;
 
-  // Filter reports base sa status
+  // Filter reports base sa status (client-side)
   const filteredReports = reports.filter(r => r.status === statusFilter);
 
   return (
