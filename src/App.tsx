@@ -6,6 +6,7 @@ import Register from './pages/Register';
 import Admin from './pages/Admin';
 import Consumer from './pages/Consumer';
 import ProfileSetup from './pages/ProfileSetup';
+import Landing from './pages/Landing'; // <-- IDINAGDAG
 import { LanguageProvider } from './context/LanguageContext';
 
 setupIonicReact();
@@ -15,6 +16,7 @@ const App: React.FC = () => (
     <LanguageProvider>
       <IonReactRouter>
         <IonRouterOutlet>
+          <Route path="/landing" element={<Landing />} /> {/* <-- IDINAGDAG */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/profile-setup" element={<ProfileSetup />} />
@@ -22,11 +24,12 @@ const App: React.FC = () => (
           <Route path="/home/*" element={<Consumer />} />
           <Route path="/my-reports/*" element={<Consumer />} />
           <Route path="/settings/*" element={<Consumer />} />
-          <Route path="/profile/*" element={<Consumer />} /> {/* <-- ROUTE */}
+          <Route path="/profile/*" element={<Consumer />} />
           
           <Route path="/admin/*" element={<Admin />} />
           
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          {/* Default route: Landing Page */}
+          <Route path="/" element={<Navigate to="/landing" replace />} />
         </IonRouterOutlet>
       </IonReactRouter>
     </LanguageProvider>
